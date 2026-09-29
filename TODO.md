@@ -45,11 +45,11 @@ SPEC §2의 가정이 실제 맥(macOS 27)에서 맞는지 확인. **틀린 게 
 
 - [x] 🤖 `spike/` 폴더에 Swift CLI 스크립트 작성 (앱 본체와 분리, 나중에 삭제 가능)
 - [x] 🤖 `CGSCopyManagedDisplaySpaces` 결과를 JSON 출력 → `uuid`, `type`, 첫 데스크탑 uuid 값 확인
-- [ ] 👤 데스크탑 순서를 바꾸고 재부팅 → 🤖 uuid가 유지되는지 다시 출력해 비교
+- [x] 👤 데스크탑 순서를 바꾸고 재부팅 → 🤖 uuid가 유지되는지 다시 출력해 비교
 - [x] 🤖 `defaults export com.apple.symbolichotkeys -`로 ID 118~133 구조 확인
-- [ ] 👤 터미널에 손쉬운 사용 권한 부여 → 🤖 합성한 `Ctrl+2` 이벤트로 데스크탑 2 전환 확인
-- [ ] 🤖 CGEventTap으로 `Option+E` 소비 + `flagsChanged`로 Option 뗌 감지 확인
-- [ ] 🤖 결과를 `docs/phase0-findings.md`에 기록하고 요약 보고
+- [x] 👤 터미널에 손쉬운 사용 권한 부여 → 🤖 합성한 `Ctrl+2` 이벤트로 데스크탑 2 전환 확인
+- [x] 🤖 CGEventTap으로 `Option+E` 소비 + `flagsChanged`로 Option 뗌 감지 확인
+- [x] 🤖 결과를 `docs/phase0-findings.md`에 기록하고 요약 보고
 
 **완료 조건:** findings 문서 작성, 가정이 모두 맞거나 대안에 합의.
 

@@ -1,0 +1,28 @@
+{
+  "activeSpace" : 4,
+  "displays" : [
+    {
+      "Current Space" : {
+        "id64" : 4,
+        "ManagedSpaceID" : 4,
+        "type" : 0,
+        "uuid" : "F19E4877-50CC-4C08-AEB0-0EDD56A35D93"
+      },
+      "Display Identifier" : "C811FC88-40F3-43B2-ABC3-2385C6ADA9F6",
+      "Spaces" : [
+        {
+          "id64" : 4,
+          "ManagedSpaceID" : 4,
+          "type" : 0,
+          "uuid" : "F19E4877-50CC-4C08-AEB0-0EDD56A35D93"
+        },
+        {
+          "id64" : 5,
+          "ManagedSpaceID" : 5,
+          "type" : 0,
+          "uuid" : "276CC097-9F18-4FDA-BDCB-EDC5B1744BD0"
+        }
+      ]
+    }
+  ]
+}

@@ -10,20 +10,22 @@ func CGSMainConnectionID() -> CGSConnectionID
 @_silgen_name("CGSGetActiveSpace")
 func CGSGetActiveSpace(_ cid: CGSConnectionID) -> Int
 
-let n = Int(CommandLine.arguments.dropFirst().first ?? "2") ?? 2
+// "left"/"right" exercise the Ctrl+←/→ fallback (IDs 79/81); a number uses IDs 118+.
+let arg = CommandLine.arguments.dropFirst().first ?? "2"
+let hotkeyID = arg == "left" ? 79 : arg == "right" ? 81 : 117 + (Int(arg) ?? 2)
 print("AXIsProcessTrusted:", AXIsProcessTrusted())
 
 let hotkeys = UserDefaults(suiteName: "com.apple.symbolichotkeys")?
     .dictionary(forKey: "AppleSymbolicHotKeys") ?? [:]
-guard let entry = hotkeys[String(117 + n)] as? [String: Any],
+guard let entry = hotkeys[String(hotkeyID)] as? [String: Any],
       (entry["enabled"] as? Bool) == true,
       let params = (entry["value"] as? [String: Any])?["parameters"] as? [Int],
       params.count == 3 else {
-    print("hotkey \(117 + n) missing or disabled"); exit(1)
+    print("hotkey \(hotkeyID) missing or disabled"); exit(1)
 }
 let keyCode = CGKeyCode(params[1])
 let flags = CGEventFlags(rawValue: UInt64(params[2]))
-print("desktop \(n): keyCode=\(keyCode) flags=0x\(String(flags.rawValue, radix: 16))")
+print("hotkey \(hotkeyID): keyCode=\(keyCode) flags=0x\(String(flags.rawValue, radix: 16))")
 
 let cid = CGSMainConnectionID()
 print("active before:", CGSGetActiveSpace(cid))
