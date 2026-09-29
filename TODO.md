@@ -28,8 +28,8 @@
 - [x] 👤 자체 서명 인증서 만들기 (약 5분, Claude가 단계 안내)
   - 키체인 접근 → 메뉴 "인증서 지원" → "인증서 생성…"
   - 이름 `SpaceSwitcher Signing`, 신원 유형 "자체 서명 루트", 인증서 유형 "코드 서명"
-- [ ] 🤖 `security find-identity -v -p codesigning`으로 인증서 인식 확인
-- [ ] 👤 인증서를 `.p12`로 내보내 안전한 곳(비밀번호 관리자 등)에 백업
+- [x] 🤖 `security find-identity -v -p codesigning`으로 인증서 인식 확인
+- [x] 👤 인증서를 `.p12`로 내보내 안전한 곳(비밀번호 관리자 등)에 백업
   - 잃어버리면 지인들이 업데이트할 때마다 권한을 다시 줘야 함
 - [x] 👤 시스템 설정 → 키보드 → 키보드 단축키 → Mission Control → **"데스크탑 N으로 전환" 켜기** (데스크탑을 2개 이상 만들어 둔 상태에서)
 - [x] 🤖 `.gitignore` 작성 (`*.xcodeproj`, `build/`, `DerivedData/`, `*.p12`, `.DS_Store`)
