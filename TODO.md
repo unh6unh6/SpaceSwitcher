@@ -97,13 +97,13 @@ SPEC §2의 가정이 실제 맥(macOS 27)에서 맞는지 확인. **틀린 게 
 
 ## Phase 4 — 스위처 ⏱ 약 반나절~하루 (가장 큼)
 
-- [ ] 🤖 `SwitcherStateMachineTests` 먼저 작성 (SPEC §3.1 모든 전이)
-- [ ] 🤖 `SwitcherStateMachine` 구현 → 테스트 통과
-- [ ] 🤖 `MRUTrackerTests` → `MRUTracker` 구현
-- [ ] 🤖 `EventTap` (Option+E 하드코딩, 재활성화 처리)
-- [ ] 🤖 `SwitcherPanel` + `SwitcherView` (중앙, 반투명, 모든 Space에 표시)
-- [ ] 🤖 팝업 모드 · 순환 모드 연결
-- [ ] 🤖 숫자키 즉시 전환, R/더블클릭 인라인 이름 편집
+- [x] 🤖 `SwitcherStateMachineTests` 먼저 작성 (SPEC §3.1 모든 전이)
+- [x] 🤖 `SwitcherStateMachine` 구현 → 테스트 통과
+- [x] 🤖 `MRUTrackerTests` → `MRUTracker` 구현
+- [x] 🤖 `EventTap` (Option+E 하드코딩, 재활성화 처리) + `KeyMapper` 테스트, 꾹 누름(autorepeat) 무시
+- [x] 🤖 `SwitcherPanel` + `SwitcherView` (중앙, 반투명, 모든 Space에 표시)
+- [x] 🤖 팝업 모드 · 순환 모드 연결
+- [x] 🤖 숫자키 즉시 전환, R/더블클릭 인라인 이름 편집
 - [ ] 👤 SPEC §7 "스위처" 항목 8개 전부 수동 확인
 
 **완료 조건:** SPEC §7 스위처 항목 전부 통과.
