@@ -11,12 +11,15 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     private let names: NameStore
     private let permissions: PermissionMonitor
     private let showPermissions: () -> Void
+    private let showSettings: () -> Void
     private var cancellables = Set<AnyCancellable>()
 
-    init(names: NameStore, permissions: PermissionMonitor, showPermissions: @escaping () -> Void) {
+    init(names: NameStore, permissions: PermissionMonitor,
+         showPermissions: @escaping () -> Void, showSettings: @escaping () -> Void) {
         self.names = names
         self.permissions = permissions
         self.showPermissions = showPermissions
+        self.showSettings = showSettings
         super.init()
         menu.delegate = self
         menu.autoenablesItems = false
@@ -63,7 +66,9 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         let rename = item("현재 데스크탑 이름 변경…", #selector(renameCurrent))
         rename.isEnabled = spaces.contains(where: \.isCurrent)  // not on fullscreen Spaces
         menu.addItem(rename)
-        menu.addItem(item("권한 및 단축키 확인…", #selector(openPermissions)))
+        let settings = item("설정…", #selector(openSettings))
+        settings.keyEquivalent = ","
+        menu.addItem(settings)
         menu.addItem(.separator())
         menu.addItem(NSMenuItem(title: "SpaceSwitcher 종료",
                                 action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
@@ -105,5 +110,9 @@ final class StatusItemController: NSObject, NSMenuDelegate {
 
     @objc private func openPermissions() {
         showPermissions()
+    }
+
+    @objc private func openSettings() {
+        showSettings()
     }
 }

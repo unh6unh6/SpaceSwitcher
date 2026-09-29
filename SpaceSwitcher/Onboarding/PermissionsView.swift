@@ -3,12 +3,15 @@ import SwiftUI
 
 struct PermissionsView: View {
     @ObservedObject var monitor: PermissionMonitor
-    let onClose: () -> Void
+    /// nil when embedded as the Settings "권한" tab (no title, no close button).
+    let onClose: (() -> Void)?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
-            Text("SpaceSwitcher 설정")
-                .font(.title2.bold())
+            if onClose != nil {
+                Text("SpaceSwitcher 설정")
+                    .font(.title2.bold())
+            }
 
             step(done: monitor.isTrusted,
                  title: "1. 손쉬운 사용 권한",
@@ -34,14 +37,17 @@ struct PermissionsView: View {
                 }
             }
 
-            HStack {
-                Spacer()
-                Button(monitor.isTrusted ? "완료" : "나중에", action: onClose)
-                    .keyboardShortcut(.defaultAction)
+            if let onClose {
+                HStack {
+                    Spacer()
+                    Button(monitor.isTrusted ? "완료" : "나중에", action: onClose)
+                        .keyboardShortcut(.defaultAction)
+                }
             }
         }
-        .padding(24)
-        .frame(width: 440)
+        .padding(onClose == nil ? 8 : 24)
+        .frame(width: onClose == nil ? nil : 440)
+        .frame(maxWidth: .infinity, alignment: .topLeading)
     }
 
     @ViewBuilder

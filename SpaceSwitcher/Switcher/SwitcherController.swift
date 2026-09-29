@@ -6,7 +6,10 @@ import AppKit
 /// becoming key requires activating the app, which steals focus from the user's app and
 /// can pull macOS onto another Space. Only inline rename activates, because a text field needs it.
 final class SwitcherController {
-    var shortcut = Shortcut.default
+    /// Follows Settings immediately via `Shortcut.didChange` (SPEC §3.6).
+    private(set) var shortcut = Shortcut.stored()
+    /// While the Settings recorder listens, every key must reach it, including the current shortcut.
+    var isSuspended = false
 
     private let names: NameStore
     private let tap = EventTap()
@@ -28,7 +31,7 @@ final class SwitcherController {
 
         tap.onKeyDown = { [weak self] key in self?.handleKey(key) ?? false }
         tap.onFlagsChanged = { [weak self] previous, current in
-            guard let self, KeyMapper.modifierReleased(previous: previous, current: current, shortcut: shortcut)
+            guard let self, !isSuspended, KeyMapper.modifierReleased(previous: previous, current: current, shortcut: shortcut)
             else { return }
             send(.modifierReleased)
         }
@@ -49,6 +52,9 @@ final class SwitcherController {
         workspace.addObserver(forName: NSWorkspace.didWakeNotification, object: nil, queue: .main) { [weak self] _ in
             self?.tap.ensureEnabled()
         }
+        NotificationCenter.default.addObserver(forName: Shortcut.didChange, object: nil, queue: .main) { [weak self] _ in
+            self?.shortcut = Shortcut.stored()
+        }
     }
 
     /// Needs Accessibility; returns false until it is granted.
@@ -61,6 +67,7 @@ final class SwitcherController {
 
     /// Runs inside the tap callback on the main thread: decide synchronously, render asynchronously.
     private func handleKey(_ key: EventTap.KeyEvent) -> Bool {
+        if isSuspended { return false }
         let decision = KeyMapper.map(keyCode: key.keyCode, flags: key.flags, isAutorepeat: key.isAutorepeat,
                                      shortcut: shortcut, capturing: machine.isCapturingKeys)
         switch decision {

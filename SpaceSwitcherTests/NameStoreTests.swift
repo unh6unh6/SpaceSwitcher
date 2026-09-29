@@ -60,6 +60,7 @@ final class NameStoreTests: XCTestCase {
         let store = NameStore(fileURL: fileURL)
         store.setName("업무", for: "A")
         store.setName("옛날", for: "GONE")
+        XCTAssertEqual(store.unusedCount(keeping: ["A"]), 1)
         XCTAssertEqual(store.removeUnused(keeping: ["A"]), 1)
         XCTAssertEqual(store.name(for: "A"), "업무")
         XCTAssertNil(NameStore(fileURL: fileURL).name(for: "GONE"))

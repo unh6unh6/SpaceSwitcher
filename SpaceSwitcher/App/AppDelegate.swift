@@ -6,6 +6,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let permissions = PermissionMonitor()
     private lazy var permissionsWindow = PermissionsWindowController(monitor: permissions)
     private lazy var switcher = SwitcherController(names: names)
+    private lazy var settingsWindow = SettingsWindowController(model: SettingsModel(
+        names: names, permissions: permissions,
+        setSwitcherSuspended: { [weak self] in self?.switcher.isSuspended = $0 }))
     private var statusItemController: StatusItemController?
     private var cancellables = Set<AnyCancellable>()
 
@@ -15,9 +18,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var isRunningTests: Bool { NSClassFromString("XCTestCase") != nil }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        statusItemController = StatusItemController(names: names, permissions: permissions) { [weak self] in
-            self?.permissionsWindow.show()
-        }
+        statusItemController = StatusItemController(
+            names: names, permissions: permissions,
+            showPermissions: { [weak self] in self?.permissionsWindow.show() },
+            showSettings: { [weak self] in self?.settingsWindow.show() })
         guard !isRunningTests else { return }
 
         // The event tap can only be created once Accessibility is granted; retry when it is.

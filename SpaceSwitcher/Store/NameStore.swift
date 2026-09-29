@@ -44,6 +44,11 @@ final class NameStore {
         save()
     }
 
+    /// How many names belong to Spaces not in `ids` (what `removeUnused` would delete).
+    func unusedCount(keeping ids: Set<String>) -> Int {
+        file.names.keys.filter { !ids.contains($0) }.count
+    }
+
     /// Deletes names whose id is not in `ids`. Returns how many were removed.
     @discardableResult
     func removeUnused(keeping ids: Set<String>) -> Int {
