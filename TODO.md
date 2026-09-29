@@ -62,7 +62,7 @@ SPEC §2의 가정이 실제 맥(macOS 27)에서 맞는지 확인. **틀린 게 
 - [x] 🤖 `CGSPrivate.swift`, `Space` 모델, `SpaceProvider` (+ `SpaceParser` 테스트 7개)
 - [x] 🤖 `activeSpaceDidChangeNotification` 구독
 - [x] 🤖 메뉴바에 `데스크탑 N` 표시 + 목록 메뉴 (전환은 아직 없음) + 종료 메뉴
-- [ ] 👤 앱 실행 → 데스크탑 바꿔서 메뉴바 표시가 바뀌는지 확인 (SPEC §7 Spaces/메뉴바 항목)
+- [x] 👤 앱 실행 → 데스크탑 바꿔서 메뉴바 표시가 바뀌는지 확인 (SPEC §7 Spaces/메뉴바 항목)
 
 **완료 조건:** 데스크탑을 바꾸면 메뉴바 표시가 즉시 바뀐다.
 
