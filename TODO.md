@@ -21,10 +21,10 @@
 
 현재 상태: Xcode 없음, xcodegen 없음, 서명 인증서 0개, GitHub 원격 없음.
 
-- [ ] 👤 App Store에서 **Xcode** 설치 (약 10GB, 30~60분)
+- [x] 👤 App Store에서 **Xcode** 설치 (약 10GB, 30~60분)
 - [ ] 👤 터미널: `sudo xcode-select -s /Applications/Xcode.app/Contents/Developer`
 - [ ] 👤 터미널: `sudo xcodebuild -license accept` → Xcode 한 번 실행해 추가 구성요소 설치
-- [ ] 🤖 `brew install xcodegen`
+- [x] 🤖 `brew install xcodegen`
 - [ ] 👤 자체 서명 인증서 만들기 (약 5분, Claude가 단계 안내)
   - 키체인 접근 → 메뉴 "인증서 지원" → "인증서 생성…"
   - 이름 `SpaceSwitcher Signing`, 신원 유형 "자체 서명 루트", 인증서 유형 "코드 서명"
@@ -32,8 +32,8 @@
 - [ ] 👤 인증서를 `.p12`로 내보내 안전한 곳(비밀번호 관리자 등)에 백업
   - 잃어버리면 지인들이 업데이트할 때마다 권한을 다시 줘야 함
 - [ ] 👤 시스템 설정 → 키보드 → 키보드 단축키 → Mission Control → **"데스크탑 N으로 전환" 켜기** (데스크탑을 2개 이상 만들어 둔 상태에서)
-- [ ] 🤖 `.gitignore` 작성 (`*.xcodeproj`, `build/`, `DerivedData/`, `*.p12`, `.DS_Store`)
-- [ ] 🤖 첫 커밋: `SPEC.md`, `CLAUDE.md`, `TODO.md`, `.gitignore`
+- [x] 🤖 `.gitignore` 작성 (`*.xcodeproj`, `build/`, `DerivedData/`, `*.p12`, `.DS_Store`)
+- [x] 🤖 첫 커밋: `SPEC.md`, `CLAUDE.md`, `TODO.md`, `.gitignore`
 - [ ] 🤖 `gh repo create unh6unh6/SpaceSwitcher --public --source . --push` (실행 전 사용자 확인)
 
 **완료 조건:** `xcodebuild -version`이 출력되고, 인증서가 1개 보이고, GitHub에 저장소가 생김.
@@ -42,7 +42,7 @@
 
 ## Phase 0 — 검증 스파이크 ⏱ 약 1~2시간 (수동 확인 포함)
 
-SPEC §2의 가정이 실제 맥(macOS 26)에서 맞는지 확인. **틀린 게 나오면 여기서 멈추고 논의.**
+SPEC §2의 가정이 실제 맥(macOS 27)에서 맞는지 확인. **틀린 게 나오면 여기서 멈추고 논의.**
 
 - [ ] 🤖 `spike/` 폴더에 Swift CLI 스크립트 작성 (앱 본체와 분리, 나중에 삭제 가능)
 - [ ] 🤖 `CGSCopyManagedDisplaySpaces` 결과를 JSON 출력 → `uuid`, `type`, 첫 데스크탑 uuid 값 확인
