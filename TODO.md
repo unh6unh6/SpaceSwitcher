@@ -22,8 +22,8 @@
 현재 상태: Xcode 없음, xcodegen 없음, 서명 인증서 0개, GitHub 원격 없음.
 
 - [x] 👤 App Store에서 **Xcode** 설치 (약 10GB, 30~60분)
-- [ ] 👤 터미널: `sudo xcode-select -s /Applications/Xcode.app/Contents/Developer`
-- [ ] 👤 터미널: `sudo xcodebuild -license accept` → Xcode 한 번 실행해 추가 구성요소 설치
+- [x] 👤 터미널: `sudo xcode-select -s /Applications/Xcode.app/Contents/Developer`
+- [x] 👤 터미널: `sudo xcodebuild -license accept` → Xcode 한 번 실행해 추가 구성요소 설치
 - [x] 🤖 `brew install xcodegen`
 - [ ] 👤 자체 서명 인증서 만들기 (약 5분, Claude가 단계 안내)
   - 키체인 접근 → 메뉴 "인증서 지원" → "인증서 생성…"
