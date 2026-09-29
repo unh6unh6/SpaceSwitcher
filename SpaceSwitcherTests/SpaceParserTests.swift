@@ -14,8 +14,8 @@ final class SpaceParserTests: XCTestCase {
         let raw = [display("MAIN", current: 4, [space(3, "A"), space(4, "B")])]
         let spaces = SpaceParser.parse(raw, activeSpaceID: 4, mainDisplayID: "MAIN")
         XCTAssertEqual(spaces, [
-            Space(id: "A", managedID: 3, index: 1, isCurrent: false),
-            Space(id: "B", managedID: 4, index: 2, isCurrent: true),
+            Space(id: "A", managedID: 3, index: 1, position: 0, isCurrent: false),
+            Space(id: "B", managedID: 4, index: 2, position: 1, isCurrent: true),
         ])
     }
 
@@ -24,6 +24,14 @@ final class SpaceParserTests: XCTestCase {
         let spaces = SpaceParser.parse(raw, activeSpaceID: 3, mainDisplayID: "MAIN")
         XCTAssertEqual(spaces.map(\.id), ["A", "B"])
         XCTAssertEqual(spaces.map(\.index), [1, 2])
+        XCTAssertEqual(spaces.map(\.position), [0, 2])
+    }
+
+    func testActivePositionCountsFullscreenSpaces() {
+        let raw = [display("MAIN", current: 9, [space(3, "A"), space(9, "FS", type: 4), space(4, "B")])]
+        XCTAssertEqual(SpaceParser.activePosition(raw, activeSpaceID: 9, mainDisplayID: "MAIN"), 1)
+        XCTAssertEqual(SpaceParser.activePosition(raw, activeSpaceID: 4, mainDisplayID: "MAIN"), 2)
+        XCTAssertNil(SpaceParser.activePosition(raw, activeSpaceID: 42, mainDisplayID: "MAIN"))
     }
 
     func testEmptyUUIDMapsToMainKey() {

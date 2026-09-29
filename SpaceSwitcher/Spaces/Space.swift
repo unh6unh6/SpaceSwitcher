@@ -7,6 +7,9 @@ struct Space: Identifiable, Equatable {
     let managedID: Int
     /// 1-based position among regular desktops — the N in "Desktop N".
     let index: Int
+    /// 0-based position among ALL Spaces on the display, fullscreen ones included.
+    /// Ctrl+←/→ steps through this order, so the arrow fallback counts with it.
+    let position: Int
     let isCurrent: Bool
 
     static let mainKey = "__main__"
@@ -18,17 +21,29 @@ enum SpaceParser {
     static let desktopType = 0
 
     static func parse(_ displays: [[String: Any]], activeSpaceID: Int, mainDisplayID: String?) -> [Space] {
-        let display = displays.first { ($0["Display Identifier"] as? String) == mainDisplayID } ?? displays.first
-        guard let rawSpaces = display?["Spaces"] as? [[String: Any]] else { return [] }
-
-        let desktops = rawSpaces.filter { ($0["type"] as? Int) == desktopType }
-        return desktops.enumerated().compactMap { offset, raw in
-            guard let managedID = raw["ManagedSpaceID"] as? Int else { return nil }
+        let rawSpaces = spaces(of: displays, mainDisplayID: mainDisplayID)
+        var index = 0
+        return rawSpaces.enumerated().compactMap { position, raw in
+            guard (raw["type"] as? Int) == desktopType,
+                  let managedID = raw["ManagedSpaceID"] as? Int else { return nil }
+            index += 1
             let uuid = raw["uuid"] as? String ?? ""
             return Space(id: uuid.isEmpty ? Space.mainKey : uuid,
                          managedID: managedID,
-                         index: offset + 1,
+                         index: index,
+                         position: position,
                          isCurrent: managedID == activeSpaceID)
         }
+    }
+
+    /// Position of the active Space among all Spaces (fullscreen included), or nil if it isn't on the main display.
+    static func activePosition(_ displays: [[String: Any]], activeSpaceID: Int, mainDisplayID: String?) -> Int? {
+        spaces(of: displays, mainDisplayID: mainDisplayID)
+            .firstIndex { ($0["ManagedSpaceID"] as? Int) == activeSpaceID }
+    }
+
+    private static func spaces(of displays: [[String: Any]], mainDisplayID: String?) -> [[String: Any]] {
+        let display = displays.first { ($0["Display Identifier"] as? String) == mainDisplayID } ?? displays.first
+        return display?["Spaces"] as? [[String: Any]] ?? []
     }
 }
