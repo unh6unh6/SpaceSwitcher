@@ -1,0 +1,138 @@
+import Foundation
+
+/// The switcher's behaviour from SPEC §3.1, free of UI and system events.
+/// Selections are 0-based row indexes in display order (desktop 1 = row 0).
+struct SwitcherStateMachine {
+    enum State: Equatable {
+        case idle
+        /// Modifier still held. `pressCount` separates popup mode (1) from cycle mode (≥ 2).
+        case holding(selection: Int, pressCount: Int)
+        /// Panel stays open after a short press.
+        case sticky(selection: Int)
+        /// Inline rename in progress; keys belong to the text field.
+        case renaming(selection: Int)
+    }
+
+    enum Event: Equatable {
+        /// Shortcut key K, with or without its modifier (the modifier is only held in Holding).
+        /// Autorepeat is filtered out before it gets here.
+        case trigger(shift: Bool)
+        case modifierReleased
+        case moveUp, moveDown
+        /// Number key 1–9.
+        case digit(Int)
+        case confirm, cancel
+        /// Row clicked.
+        case select(Int)
+        case beginRename, endRename
+        case clickOutside
+    }
+
+    enum Action: Equatable {
+        case show(selection: Int)
+        case select(Int)
+        case hide
+        /// Hide the panel and switch to this row.
+        case switchTo(Int)
+        case rename(Int)
+    }
+
+    private(set) var state: State = .idle
+    private var count = 0
+    /// Queried on every open: desktops may have been added or removed since last time.
+    private let listProvider: () -> (count: Int, initial: Int)
+
+    init(listProvider: @escaping () -> (count: Int, initial: Int)) {
+        self.listProvider = listProvider
+    }
+
+    /// Holding and Sticky own the keyboard (the event tap swallows keys). Renaming hands keys to the text field.
+    var isCapturingKeys: Bool {
+        switch state {
+        case .holding, .sticky: return true
+        case .idle, .renaming: return false
+        }
+    }
+
+    var isOpen: Bool { state != .idle }
+
+    mutating func handle(_ event: Event) -> Action? {
+        switch state {
+        case .idle:
+            guard case .trigger = event else { return nil }
+            let list = listProvider()
+            guard list.count > 0 else { return nil }
+            count = list.count
+            let initial = min(max(list.initial, 0), count - 1)
+            state = .holding(selection: initial, pressCount: 1)
+            return .show(selection: initial)
+
+        case let .holding(selection, pressCount):
+            switch event {
+            case .trigger(let shift):
+                let next = step(selection, shift ? -1 : 1)
+                state = .holding(selection: next, pressCount: pressCount + 1)
+                return .select(next)
+            case .modifierReleased:
+                if pressCount >= 2 { return close(.switchTo(selection)) }
+                state = .sticky(selection: selection)
+                return nil
+            case .moveUp, .moveDown:
+                return move(selection, event == .moveUp ? -1 : 1) { .holding(selection: $0, pressCount: pressCount) }
+            case .cancel, .clickOutside:
+                return close(.hide)
+            case .select(let row) where (0..<count).contains(row):
+                return close(.switchTo(row))
+            default:
+                return nil
+            }
+
+        case let .sticky(selection):
+            switch event {
+            case .trigger(let shift):
+                return move(selection, shift ? -1 : 1) { .sticky(selection: $0) }
+            case .moveUp, .moveDown:
+                return move(selection, event == .moveUp ? -1 : 1) { .sticky(selection: $0) }
+            case .digit(let n) where (1...count).contains(n):
+                return close(.switchTo(n - 1))
+            case .confirm:
+                return close(.switchTo(selection))
+            case .select(let row) where (0..<count).contains(row):
+                return close(.switchTo(row))
+            case .beginRename:
+                state = .renaming(selection: selection)
+                return .rename(selection)
+            case .cancel, .clickOutside:
+                return close(.hide)
+            default:
+                return nil
+            }
+
+        case let .renaming(selection):
+            switch event {
+            case .endRename:
+                state = .sticky(selection: selection)
+                return .select(selection)
+            case .clickOutside:
+                return close(.hide)
+            default:
+                return nil
+            }
+        }
+    }
+
+    private func step(_ selection: Int, _ delta: Int) -> Int {
+        ((selection + delta) % count + count) % count
+    }
+
+    private mutating func move(_ selection: Int, _ delta: Int, _ makeState: (Int) -> State) -> Action {
+        let next = step(selection, delta)
+        state = makeState(next)
+        return .select(next)
+    }
+
+    private mutating func close(_ action: Action) -> Action {
+        state = .idle
+        return action
+    }
+}
