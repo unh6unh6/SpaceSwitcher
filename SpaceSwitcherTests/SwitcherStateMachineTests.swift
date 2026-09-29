@@ -32,7 +32,7 @@ final class SwitcherStateMachineTests: XCTestCase {
     func testIdleIgnoresEverythingElse() {
         var m = machine()
         for event: SwitcherStateMachine.Event in [.modifierReleased, .moveUp, .moveDown, .digit(1),
-                                                 .confirm, .cancel, .select(0), .beginRename, .endRename, .clickOutside] {
+                                                 .confirm, .cancel, .select(0), .highlight(0), .beginRename, .endRename, .clickOutside] {
             XCTAssertNil(m.handle(event), "\(event)")
             XCTAssertEqual(m.state, .idle)
         }
@@ -156,6 +156,26 @@ final class SwitcherStateMachineTests: XCTestCase {
         _ = m.handle(.beginRename)
         XCTAssertEqual(m.handle(.clickOutside), .hide)
         XCTAssertEqual(m.state, .idle)
+    }
+
+    // Double-click = highlight that row, then rename it.
+    func testHighlightMovesSelectionWithoutSwitching() {
+        var m = sticky(count: 4, initial: 0)
+        XCTAssertEqual(m.handle(.highlight(3)), .select(3))
+        XCTAssertEqual(m.state, .sticky(selection: 3))
+        XCTAssertEqual(m.handle(.beginRename), .rename(3))
+    }
+
+    func testHighlightOutOfRangeIgnored() {
+        var m = sticky(count: 2, initial: 0)
+        XCTAssertNil(m.handle(.highlight(5)))
+        XCTAssertEqual(m.state, .sticky(selection: 0))
+    }
+
+    func testHighlightInHoldingKeepsPressCount() {
+        var m = holding(count: 4, initial: 0)
+        XCTAssertEqual(m.handle(.highlight(2)), .select(2))
+        XCTAssertEqual(m.state, .holding(selection: 2, pressCount: 1))
     }
 
     func testRenameNotAvailableWhileHolding() {

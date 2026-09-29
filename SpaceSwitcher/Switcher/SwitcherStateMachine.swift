@@ -22,8 +22,10 @@ struct SwitcherStateMachine {
         /// Number key 1–9.
         case digit(Int)
         case confirm, cancel
-        /// Row clicked.
+        /// Row clicked: switch to it.
         case select(Int)
+        /// Move the selection to a row without switching (first half of a double-click rename).
+        case highlight(Int)
         case beginRename, endRename
         case clickOutside
     }
@@ -79,6 +81,9 @@ struct SwitcherStateMachine {
                 return nil
             case .moveUp, .moveDown:
                 return move(selection, event == .moveUp ? -1 : 1) { .holding(selection: $0, pressCount: pressCount) }
+            case .highlight(let row) where (0..<count).contains(row):
+                state = .holding(selection: row, pressCount: pressCount)
+                return .select(row)
             case .cancel, .clickOutside:
                 return close(.hide)
             case .select(let row) where (0..<count).contains(row):
@@ -93,6 +98,9 @@ struct SwitcherStateMachine {
                 return move(selection, shift ? -1 : 1) { .sticky(selection: $0) }
             case .moveUp, .moveDown:
                 return move(selection, event == .moveUp ? -1 : 1) { .sticky(selection: $0) }
+            case .highlight(let row) where (0..<count).contains(row):
+                state = .sticky(selection: row)
+                return .select(row)
             case .digit(let n) where (1...count).contains(n):
                 return close(.switchTo(n - 1))
             case .confirm:
