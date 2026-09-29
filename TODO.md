@@ -34,9 +34,8 @@
 - [x] 👤 시스템 설정 → 키보드 → 키보드 단축키 → Mission Control → **"데스크탑 N으로 전환" 켜기** (데스크탑을 2개 이상 만들어 둔 상태에서)
 - [x] 🤖 `.gitignore` 작성 (`*.xcodeproj`, `build/`, `DerivedData/`, `*.p12`, `.DS_Store`)
 - [x] 🤖 첫 커밋: `SPEC.md`, `CLAUDE.md`, `TODO.md`, `.gitignore`
-- [ ] 🤖 `gh repo create unh6unh6/SpaceSwitcher --public --source . --push` (실행 전 사용자 확인)
 
-**완료 조건:** `xcodebuild -version`이 출력되고, 인증서가 1개 보이고, GitHub에 저장소가 생김.
+**완료 조건:** `xcodebuild -version`이 출력되고, 인증서가 1개 보임. (GitHub 저장소는 Phase 7로 연기)
 
 ---
 
@@ -136,6 +135,7 @@ SPEC §2의 가정이 실제 맥(macOS 27)에서 맞는지 확인. **틀린 게 
 
 ## Phase 7 — 지인 배포 ⏱ 약 2시간 (최초), 이후 릴리스마다 약 5분
 
+- [ ] 🤖 `git branch -m main` → `gh repo create unh6unh6/SpaceSwitcher --public --source . --push` (Phase S에서 연기됨, 실행 전 사용자 확인)
 - [ ] 🤖 `project.yml`에 버전 필드 정리 (`MARKETING_VERSION`, `CURRENT_PROJECT_VERSION`)
 - [ ] 🤖 `scripts/release.sh <버전>`:
   - Universal(arm64+x86_64) Release 빌드
