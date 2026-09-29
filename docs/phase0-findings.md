@@ -96,3 +96,12 @@ TextEdit에서 Option+E 연타, Option+Shift+E 연타 후 Option 뗌:
 - 키를 누르고 있으면 autorepeat `keyDown`이 계속 들어옴 (Option+Shift+E ×10). **상태 머신 입력에서 autorepeat을 구분해야 함** → `.keyboardEventAutorepeat` 필드로 판별. 무시할지 순환에 포함할지는 Phase 4에서 결정.
 - `flagsChanged`는 Shift, Cmd+Tab 등 다른 수식키 변화에도 옴 → "Option 뗌"은 `maskAlternate`가 true→false로 바뀐 순간으로 판정.
 - 20초 동안 `tapDisabledBy*`는 발생하지 않음. 슬립/깨우기 후 재활성화는 Phase 4 수동 테스트에서 확인.
+
+## 후속 발견 (Phase 4, 2026-09-30): 합성한 수식키가 눌린 채로 남음
+
+- 증상: 스위처로 이동한 직후 Option+E를 누르면 가끔 "삑" 소리만 나고 패널이 안 뜸.
+- 원인: flags에 Control을 넣은 keyDown을 `.cghidEventTap`에 보내면 시스템 수식키 상태에 Control이 **계속 남음**
+  (3초 뒤에도 `0x040000`). event source(`hidSystemState`/`privateState`/nil)와 무관.
+  → 다음 실제 Option+E가 Ctrl+Option+E로 도착 → 단축키 불일치로 통과 → 앱이 삑.
+- 해결: 키를 보낸 뒤 해당 수식키의 key-up `flagsChanged` 이벤트(Control=59, Fn=63)를 추가로 전송
+  (`Spaces/ModifierRelease.swift`). 앱 경유 전환 4회(Ctrl+N 3회, 화살표 1회) 모두 이후 상태 `0x000000` 확인.

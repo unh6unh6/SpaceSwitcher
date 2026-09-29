@@ -41,5 +41,13 @@ enum SpaceSwitcherService {
             event.flags = CGEventFlags(rawValue: combo.flags)
             event.post(tap: .cghidEventTap)
         }
+        // `before: 0` rather than the current state: that state may already contain a stuck Control from an
+        // earlier synthesized press, and switches only happen once the user has let go of the shortcut anyway.
+        for keyUp in ModifierRelease.keyUps(for: combo.flags, before: 0) {
+            guard let event = CGEvent(keyboardEventSource: source, virtualKey: keyUp.keyCode, keyDown: false) else { continue }
+            event.type = .flagsChanged
+            event.flags = CGEventFlags(rawValue: keyUp.flagsAfter)
+            event.post(tap: .cghidEventTap)
+        }
     }
 }
