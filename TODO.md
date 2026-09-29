@@ -57,11 +57,11 @@ SPEC §2의 가정이 실제 맥(macOS 27)에서 맞는지 확인. **틀린 게 
 
 ## Phase 1 — 앱 골격 + 메뉴바 ⏱ 약 2시간
 
-- [ ] 🤖 `project.yml` 작성: 번들 ID, macOS 14, `LSUIElement`, 샌드박스 끔, 서명 `SpaceSwitcher Signing` (Manual)
-- [ ] 🤖 `xcodegen generate` → 빈 앱 빌드 성공
-- [ ] 🤖 `CGSPrivate.swift`, `Space` 모델, `SpaceProvider`
-- [ ] 🤖 `activeSpaceDidChangeNotification` 구독
-- [ ] 🤖 메뉴바에 `데스크탑 N` 표시 + 목록 메뉴 (전환은 아직 없음) + 종료 메뉴
+- [x] 🤖 `project.yml` 작성: 번들 ID, macOS 14, `LSUIElement`, 샌드박스 끔, 서명 `SpaceSwitcher Signing` (Manual)
+- [x] 🤖 `xcodegen generate` → 빈 앱 빌드 성공
+- [x] 🤖 `CGSPrivate.swift`, `Space` 모델, `SpaceProvider` (+ `SpaceParser` 테스트 7개)
+- [x] 🤖 `activeSpaceDidChangeNotification` 구독
+- [x] 🤖 메뉴바에 `데스크탑 N` 표시 + 목록 메뉴 (전환은 아직 없음) + 종료 메뉴
 - [ ] 👤 앱 실행 → 데스크탑 바꿔서 메뉴바 표시가 바뀌는지 확인 (SPEC §7 Spaces/메뉴바 항목)
 
 **완료 조건:** 데스크탑을 바꾸면 메뉴바 표시가 즉시 바뀐다.
