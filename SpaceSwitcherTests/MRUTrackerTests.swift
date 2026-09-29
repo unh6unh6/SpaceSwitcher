@@ -44,22 +44,37 @@ final class MRUTrackerTests: XCTestCase {
     func testInitialSelectionIsPreviousDesktop() {
         var mru = MRUTracker()
         mru.visit("C"); mru.visit("A")
-        XCTAssertEqual(mru.initialSelection(in: desktops(["A", "B", "C"], current: "A")), 2)
+        XCTAssertEqual(mru.initialSelection(.previous, in: desktops(["A", "B", "C"], current: "A")), 2)
     }
 
     func testInitialSelectionFallsBackToNextDesktop() {
         let mru = MRUTracker()
-        XCTAssertEqual(mru.initialSelection(in: desktops(["A", "B", "C"], current: "C")), 0)  // wraps
-        XCTAssertEqual(mru.initialSelection(in: desktops(["A", "B", "C"], current: "A")), 1)
+        XCTAssertEqual(mru.initialSelection(.previous, in: desktops(["A", "B", "C"], current: "C")), 0)  // wraps
+        XCTAssertEqual(mru.initialSelection(.previous, in: desktops(["A", "B", "C"], current: "A")), 1)
     }
 
     func testInitialSelectionOnFullscreenIsFirstRow() {
         let mru = MRUTracker()
-        XCTAssertEqual(mru.initialSelection(in: desktops(["A", "B"], current: nil)), 0)
+        XCTAssertEqual(mru.initialSelection(.previous, in: desktops(["A", "B"], current: nil)), 0)
+    }
+
+    // Default since 2026-09-30 (user preference): start on the current desktop.
+    func testCurrentModeSelectsCurrentDesktop() {
+        var mru = MRUTracker()
+        mru.visit("C"); mru.visit("B")
+        XCTAssertEqual(mru.initialSelection(.current, in: desktops(["A", "B", "C"], current: "B")), 1)
+    }
+
+    func testCurrentModeOnFullscreenIsFirstRow() {
+        XCTAssertEqual(MRUTracker().initialSelection(.current, in: desktops(["A", "B"], current: nil)), 0)
+    }
+
+    func testDefaultModeIsCurrent() {
+        XCTAssertEqual(InitialSelection.default, .current)
     }
 
     func testInitialSelectionWithOneDesktopIsItself() {
         let mru = MRUTracker()
-        XCTAssertEqual(mru.initialSelection(in: desktops(["A"], current: "A")), 0)
+        XCTAssertEqual(mru.initialSelection(.previous, in: desktops(["A"], current: "A")), 0)
     }
 }

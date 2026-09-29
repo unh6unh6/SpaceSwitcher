@@ -12,7 +12,7 @@
 | 번들 ID | `io.github.unh6unh6.SpaceSwitcher` | — |
 | 저장소 | GitHub 공개 저장소 `unh6unh6/SpaceSwitcher` | — |
 | 업데이트 | 수동 재설치 (새 DMG로 덮어쓰기). 외부 의존성 0 | Homebrew cask 제외 |
-| 초기 선택 | 직전 데스크탑 (MRU) | SPEC 기본값 그대로 |
+| 초기 선택 | **현재 데스크탑** (2026-09-30 변경). "직전 데스크탑"은 Phase 5 설정에서 선택 | SPEC은 직전 데스크탑(MRU) |
 | 대상 Mac | macOS 14+, Universal(Apple Silicon + Intel) | — |
 
 ---
@@ -104,7 +104,10 @@ SPEC §2의 가정이 실제 맥(macOS 27)에서 맞는지 확인. **틀린 게 
 - [x] 🤖 `SwitcherPanel` + `SwitcherView` (중앙, 반투명, 모든 Space에 표시)
 - [x] 🤖 팝업 모드 · 순환 모드 연결
 - [x] 🤖 숫자키 즉시 전환, R/더블클릭 인라인 이름 편집
-- [ ] 👤 SPEC §7 "스위처" 항목 8개 전부 수동 확인
+- [x] 👤 SPEC §7 "스위처" 항목 8개 전부 수동 확인
+- [x] 🤖 버그: 이동 직후 Option+E가 삑 소리만 나고 안 뜸 → 합성 Ctrl이 눌린 채 남던 문제 수정 (`ModifierRelease`)
+- [x] 🤖 초기 선택을 현재 데스크탑으로 변경 (`InitialSelection`, 기본값 current)
+- [ ] 👤 수동 확인: 이동 직후 바로 Option+E → 삑 소리 없이 뜸 / 첫 선택이 현재 데스크탑
 
 **완료 조건:** SPEC §7 스위처 항목 전부 통과.
 
@@ -115,6 +118,7 @@ SPEC §2의 가정이 실제 맥(macOS 27)에서 맞는지 확인. **틀린 게 
 - [ ] 🤖 설정 창 골격 (일반 / 단축키 / 데스크탑 / 권한 탭)
 - [ ] 🤖 단축키 레코더 + 저장 + 이벤트 탭 즉시 반영 + 기본값 복원
 - [ ] 🤖 로그인 시 자동 실행 (`SMAppService`)
+- [ ] 🤖 스위처 첫 선택: 현재 데스크탑 / 직전 데스크탑 선택 옵션 (`InitialSelection.store`)
 - [ ] 🤖 데스크탑 탭: 이름 편집 + 사용하지 않는 이름 정리
 - [ ] 🤖 권한 탭: 상태 표시 + 시스템 설정 열기 버튼
 - [ ] 👤 수동 확인: 단축키를 `Ctrl+Option+Space`로 변경 후 동작 / 자동 실행 on→로그아웃→로그인

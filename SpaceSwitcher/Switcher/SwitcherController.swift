@@ -23,7 +23,7 @@ final class SwitcherController {
         self.names = names
         machine = SwitcherStateMachine { [unowned self] in
             spaces = SpaceProvider.spaces()
-            return (count: spaces.count, initial: mru.initialSelection(in: spaces))
+            return (count: spaces.count, initial: mru.initialSelection(InitialSelection.stored, in: spaces))
         }
 
         tap.onKeyDown = { [weak self] key in self?.handleKey(key) ?? false }
