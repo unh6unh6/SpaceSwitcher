@@ -1,0 +1,59 @@
+name: SpaceSwitcher
+options:
+  bundleIdPrefix: io.github.unh6unh6
+  deploymentTarget:
+    macOS: "14.0"
+  createIntermediateGroups: true
+
+settings:
+  base:
+    SWIFT_VERSION: "5"
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    # One self-signed cert for every build so the Accessibility grant survives rebuilds (see TODO.md).
+    CODE_SIGN_STYLE: Manual
+    CODE_SIGN_IDENTITY: "SpaceSwitcher Signing"
+    DEVELOPMENT_TEAM: ""
+
+targets:
+  SpaceSwitcher:
+    type: application
+    platform: macOS
+    sources: [SpaceSwitcher]
+    info:
+      path: SpaceSwitcher/Resources/Info.plist
+      properties:
+        CFBundleDisplayName: SpaceSwitcher
+        LSUIElement: true
+        LSMinimumSystemVersion: "$(MACOSX_DEPLOYMENT_TARGET)"
+        NSHumanReadableCopyright: ""
+    entitlements:
+      path: SpaceSwitcher/Resources/SpaceSwitcher.entitlements
+      properties:
+        com.apple.security.app-sandbox: false
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.unh6unh6.SpaceSwitcher
+        ENABLE_HARDENED_RUNTIME: NO
+
+  SpaceSwitcherTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources: [SpaceSwitcherTests]
+    dependencies:
+      - target: SpaceSwitcher
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.unh6unh6.SpaceSwitcherTests
+        GENERATE_INFOPLIST_FILE: YES
+        BUNDLE_LOADER: "$(TEST_HOST)"
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/SpaceSwitcher.app/Contents/MacOS/SpaceSwitcher"
+
+schemes:
+  SpaceSwitcher:
+    build:
+      targets:
+        SpaceSwitcher: all
+        SpaceSwitcherTests: [test]
+    test:
+      targets: [SpaceSwitcherTests]
