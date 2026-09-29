@@ -30,6 +30,11 @@ final class NameStore {
         file.names[id]
     }
 
+    /// The user's name, or the "데스크탑 N" fallback shown for unnamed desktops.
+    func displayName(for space: Space) -> String {
+        name(for: space.id) ?? "데스크탑 \(space.index)"
+    }
+
     /// Trims whitespace and caps at `maxLength` characters; an empty result removes the name.
     func setName(_ raw: String, for id: String) {
         let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)

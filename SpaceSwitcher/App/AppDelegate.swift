@@ -1,6 +1,7 @@
 import AppKit
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
+    private let names = NameStore()
     private let permissions = PermissionMonitor()
     private lazy var permissionsWindow = PermissionsWindowController(monitor: permissions)
     private var statusItemController: StatusItemController?
@@ -8,7 +9,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private static let onboardedKey = "didShowOnboarding"
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        statusItemController = StatusItemController(permissions: permissions) { [weak self] in
+        statusItemController = StatusItemController(names: names, permissions: permissions) { [weak self] in
             self?.permissionsWindow.show()
         }
 
