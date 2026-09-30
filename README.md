@@ -13,6 +13,20 @@ macOS 14 Sonoma 이상 · Apple Silicon / Intel 모두 지원
 
 ## 설치 (약 5분)
 
+### 방법 A: Homebrew (권장, 한 줄)
+
+```sh
+brew install --cask unh6unh6/tap/spaceswitcher
+```
+
+"그래도 열기" 과정 없이 바로 열립니다. 설치 후 아래 **3번(권한)**부터 하면 됩니다.
+업데이트는 `brew upgrade --cask spaceswitcher`, 삭제는 `brew uninstall --cask --zap spaceswitcher`.
+
+> 이 방식은 설치할 때 macOS의 "확인되지 않은 개발자" 표시를 지웁니다 (앱이 Apple 공증을 받지 않았기 때문).
+> 이 저장소를 믿는 경우에만 사용하세요.
+
+### 방법 B: 직접 다운로드
+
 ### 1. 다운로드
 
 [**Releases**](https://github.com/unh6unh6/SpaceSwitcher/releases/latest)에서 `SpaceSwitcher-x.y.z.dmg`를 받아 엽니다.
@@ -67,11 +81,16 @@ macOS 14 Sonoma 이상 · Apple Silicon / Intel 모두 지원
 
 ## 업데이트
 
-새 버전 DMG를 받아 Applications 폴더에 **덮어쓰기** 하면 됩니다. 권한과 이름은 그대로 유지됩니다.
+Homebrew로 설치했다면 `brew upgrade --cask spaceswitcher`.
+
+직접 설치했다면 새 버전 DMG를 받아 Applications 폴더에 **덮어쓰기** 하면 됩니다. 권한과 이름은 그대로 유지됩니다.
 (덮어쓰기 전에 메뉴바 → SpaceSwitcher 종료)
 
 ## 삭제
 
+Homebrew: `brew uninstall --cask --zap spaceswitcher` (이름·설정까지 삭제)
+
+직접 설치:
 1. 메뉴바 → **SpaceSwitcher 종료**
 2. Applications 폴더에서 SpaceSwitcher를 휴지통으로
 3. (선택) 저장된 이름 지우기: Finder → 이동 → 폴더로 이동 → `~/Library/Application Support/SpaceSwitcher` 삭제
@@ -94,7 +113,7 @@ brew install xcodegen
 xcodegen generate
 xcodebuild test -scheme SpaceSwitcher -destination 'platform=macOS'
 ./scripts/install.sh            # Release 빌드 → /Applications 설치
-./scripts/release.sh 0.2.0      # 버전 올리고 DMG 만들어 GitHub Release 게시
+./scripts/release.sh 0.2.0      # 버전 올리고 DMG 만들어 GitHub Release 게시 + Homebrew tap 갱신
 ```
 
 빌드는 키체인의 자체 서명 인증서 **SpaceSwitcher Signing**(코드 서명용)으로 서명합니다.

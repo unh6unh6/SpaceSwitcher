@@ -11,7 +11,8 @@
 | 서명 | 자체 서명 인증서 `SpaceSwitcher Signing` 하나로 개발·배포 모두 서명 | 빌드해도 손쉬운 사용 권한 유지 |
 | 번들 ID | `io.github.unh6unh6.SpaceSwitcher` | — |
 | 저장소 | GitHub 공개 저장소 `unh6unh6/SpaceSwitcher` | — |
-| 업데이트 | 수동 재설치 (새 DMG로 덮어쓰기). 외부 의존성 0 | Homebrew cask 제외 |
+| 업데이트 | 수동 재설치(DMG) 또는 `brew upgrade`. 외부 의존성 0 | — |
+| Homebrew | 전용 tap `unh6unh6/homebrew-tap` (2026-09-30 추가). 설치 시 quarantine 제거 → "그래도 열기" 불필요 | SPEC의 공식 cask는 공증 필요해 불가 |
 | 초기 선택 | **현재 데스크탑** (2026-09-30 변경). "직전 데스크탑"은 Phase 5 설정에서 선택 | SPEC은 직전 데스크탑(MRU) |
 | 대상 Mac | macOS 14+, Universal(Apple Silicon + Intel) | — |
 
@@ -149,12 +150,14 @@ SPEC §2의 가정이 실제 맥(macOS 27)에서 맞는지 확인. **틀린 게 
   - `hdiutil`로 DMG 생성 (앱 + Applications 바로가기)
   - `gh release create v<버전> SpaceSwitcher.dmg`
 - [x] 🤖 `README.md` (한국어): 기능 소개, 스크린샷 자리, **지인용 설치 방법**
+- [x] 🤖 Homebrew tap: `unh6unh6/homebrew-tap` 생성, `scripts/cask.rb.template` (postflight_steps로 quarantine 제거, 로컬 tap 설치로 검증), release.sh 7단계에서 자동 갱신
   - DMG 열기 → Applications로 드래그
   - 첫 실행 차단 시: 시스템 설정 → 개인정보 보호 및 보안 → "그래도 열기"
   - 손쉬운 사용 권한 부여
   - "데스크탑 N으로 전환" 단축키 켜기
   - 업데이트: 새 DMG로 덮어쓰기 (권한 유지됨)
 - [ ] 👤 `./scripts/release.sh 0.1.0` 실행 → GitHub Releases 페이지 확인
+- [ ] 🤖 `brew install --cask unh6unh6/tap/spaceswitcher` 실제 설치 검증 (임시 appdir)
 - [ ] 👤 지인 1명에게 링크 전달 → README대로 설치되는지 확인 (가능하면 Intel 맥도)
 - [ ] 🤖 지인 피드백 반영해 README 보완
 
