@@ -133,7 +133,7 @@ SPEC §2의 가정이 실제 맥(macOS 27)에서 맞는지 확인. **틀린 게 
 
 - [x] 🤖 `scripts/install.sh`: Release 빌드 → `/Applications/SpaceSwitcher.app`에 복사 → 실행
 - [x] 👤 `./scripts/install.sh` 실행 → 손쉬운 사용 권한 부여 (Claude가 실행, 인증서 덕에 권한 그대로 유지됨)
-- [ ] 👤 설치된 앱 설정에서 "로그인 시 자동 실행" 껐다 켜기 → 재부팅 후 자동 실행 + Option+E 확인
+- [x] 👤 설치된 앱 설정에서 "로그인 시 자동 실행" 껐다 켜기 → 재부팅 후 자동 실행 + Option+E 확인
 
 **완료 조건:** 재부팅 후 앱이 자동으로 뜨고 Option+E가 동작.
 
