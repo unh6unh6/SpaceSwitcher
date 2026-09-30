@@ -1,12 +1,15 @@
 # SpaceSwitcher TODO
 
+> **MVP(Phase S~7) 완료 · v0.1.0 릴리스됨.** 이 파일은 기록용. 이후 작업은 [GitHub 이슈](https://github.com/unh6unh6/SpaceSwitcher/issues).
+
 > 표시: 👤 = 사용자가 직접 해야 함 (GUI 조작, 비밀번호, 권한 부여) · 🤖 = Claude가 함 · ⏱ = 예상 시간
 > 한 Phase가 끝나면 커밋: `phaseN: <요약>`. 상세 동작은 `SPEC.md` 참고.
 
-## 확정된 결정 (2026-09-29)
+## 확정된 결정
 
-| 항목 | 결정 | SPEC과 차이 |
-|------|------|-------------|
+→ [`docs/DECISIONS.md`](docs/DECISIONS.md)로 이동 (SPEC보다 우선).
+
+------|------|-------------|
 | 배포 범위 | 나 + 지인. GitHub Releases에 DMG 업로드 | SPEC은 Developer ID+공증 → **유료 계정 없이 진행, 공증 생략** |
 | 서명 | 자체 서명 인증서 `SpaceSwitcher Signing` 하나로 개발·배포 모두 서명 | 빌드해도 손쉬운 사용 권한 유지 |
 | 번들 ID | `io.github.unh6unh6.SpaceSwitcher` | — |
