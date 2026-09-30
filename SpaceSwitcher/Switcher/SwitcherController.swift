@@ -21,6 +21,8 @@ final class SwitcherController {
     private var spaces: [Space] = []
     private var clickMonitor: Any?
     private var activatedForRename = false
+    /// The app that had focus before inline rename activated us; it gets focus back afterwards.
+    private var focusBeforeRename: NSRunningApplication?
 
     init(names: NameStore) {
         self.names = names
@@ -48,6 +50,11 @@ final class SwitcherController {
         let workspace = NSWorkspace.shared.notificationCenter
         workspace.addObserver(forName: NSWorkspace.activeSpaceDidChangeNotification, object: nil, queue: .main) { [weak self] _ in
             self?.recordCurrentSpace()
+        }
+        // If the app gets hidden (e.g. Cmd+H while renaming), the panel goes with it; resync the machine
+        // or the tap keeps swallowing keys for an invisible panel (#7).
+        NotificationCenter.default.addObserver(forName: NSApplication.didHideNotification, object: nil, queue: .main) { [weak self] _ in
+            self?.send(.dismissed)
         }
         workspace.addObserver(forName: NSWorkspace.didWakeNotification, object: nil, queue: .main) { [weak self] _ in
             self?.tap.ensureEnabled()
@@ -108,6 +115,10 @@ final class SwitcherController {
             model.selection = row
             model.draft = names.name(for: spaces[row].id) ?? ""
             model.renamingRow = row
+            if !activatedForRename {
+                let front = NSWorkspace.shared.frontmostApplication
+                focusBeforeRename = front?.processIdentifier == ProcessInfo.processInfo.processIdentifier ? nil : front
+            }
             activatedForRename = true
             NSApp.activate(ignoringOtherApps: true)
             panel.makeKey()
@@ -121,9 +132,9 @@ final class SwitcherController {
         send(.endRename)
     }
 
+    /// Enter and Esc both land here; the panel stays open in Sticky (#7).
     private func finishRenameUI() {
         model.renamingRow = nil
-        panel.resignKey()
         returnFocus()
     }
 
@@ -135,10 +146,17 @@ final class SwitcherController {
     }
 
     /// Give the keyboard back to the app the user was in after an inline rename.
+    /// Not `NSApp.hide`: that hides every window of ours, the panel included, while the state machine
+    /// still believes it is open (#7). Activating the other app keeps the non-activating panel on screen.
     private func returnFocus() {
         guard activatedForRename else { return }
         activatedForRename = false
-        NSApp.hide(nil)
+        if let app = focusBeforeRename, !app.isTerminated {
+            app.activate()
+        } else {
+            NSApp.deactivate()
+        }
+        focusBeforeRename = nil
     }
 
     private func reloadRows() {

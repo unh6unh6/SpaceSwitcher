@@ -28,6 +28,8 @@ struct SwitcherStateMachine {
         case highlight(Int)
         case beginRename, endRename
         case clickOutside
+        /// The panel vanished without going through the machine (e.g. the app was hidden).
+        case dismissed
     }
 
     enum Action: Equatable {
@@ -59,6 +61,9 @@ struct SwitcherStateMachine {
     var isOpen: Bool { state != .idle }
 
     mutating func handle(_ event: Event) -> Action? {
+        if event == .dismissed {
+            return isOpen ? close(.hide) : nil
+        }
         switch state {
         case .idle:
             guard case .trigger = event else { return nil }

@@ -32,7 +32,7 @@ final class SwitcherStateMachineTests: XCTestCase {
     func testIdleIgnoresEverythingElse() {
         var m = machine()
         for event: SwitcherStateMachine.Event in [.modifierReleased, .moveUp, .moveDown, .digit(1),
-                                                 .confirm, .cancel, .select(0), .highlight(0), .beginRename, .endRename, .clickOutside] {
+                                                 .confirm, .cancel, .select(0), .highlight(0), .beginRename, .endRename, .clickOutside, .dismissed] {
             XCTAssertNil(m.handle(event), "\(event)")
             XCTAssertEqual(m.state, .idle)
         }
@@ -176,6 +176,36 @@ final class SwitcherStateMachineTests: XCTestCase {
         var m = holding(count: 4, initial: 0)
         XCTAssertEqual(m.handle(.highlight(2)), .select(2))
         XCTAssertEqual(m.state, .holding(selection: 2, pressCount: 1))
+    }
+
+    // #7: Enter (commit) and Esc (cancel) both end with .endRename; the panel must stay open in Sticky.
+    func testEndRenameKeepsPanelOpenAndCapturing() {
+        var m = sticky(count: 4, initial: 1)
+        _ = m.handle(.beginRename)
+        XCTAssertEqual(m.handle(.endRename), .select(1))
+        XCTAssertTrue(m.isOpen)
+        XCTAssertTrue(m.isCapturingKeys)
+        XCTAssertEqual(m.handle(.moveDown), .select(2))
+        XCTAssertEqual(m.handle(.cancel), .hide)
+        XCTAssertEqual(m.handle(.trigger(shift: false)), .show(selection: 1))  // reopens right away
+    }
+
+    // #7: if the panel disappears behind our back (app hidden, Cmd+H), the machine must not stay "open",
+    // otherwise the tap keeps swallowing keys and the shortcut only moves an invisible selection.
+    func testDismissedFromAnyOpenStateReturnsToIdle() {
+        var m = holding()
+        XCTAssertEqual(m.handle(.dismissed), .hide)
+        XCTAssertEqual(m.state, .idle)
+
+        m = sticky()
+        XCTAssertEqual(m.handle(.dismissed), .hide)
+        XCTAssertFalse(m.isCapturingKeys)
+
+        m = sticky()
+        _ = m.handle(.beginRename)
+        XCTAssertEqual(m.handle(.dismissed), .hide)
+        XCTAssertEqual(m.state, .idle)
+        XCTAssertEqual(m.handle(.trigger(shift: false)), .show(selection: 1))
     }
 
     func testRenameNotAvailableWhileHolding() {
