@@ -105,3 +105,11 @@ TextEdit에서 Option+E 연타, Option+Shift+E 연타 후 Option 뗌:
   → 다음 실제 Option+E가 Ctrl+Option+E로 도착 → 단축키 불일치로 통과 → 앱이 삑.
 - 해결: 키를 보낸 뒤 해당 수식키의 key-up `flagsChanged` 이벤트(Control=59, Fn=63)를 추가로 전송
   (`Spaces/ModifierRelease.swift`). 앱 경유 전환 4회(Ctrl+N 3회, 화살표 1회) 모두 이후 상태 `0x000000` 확인.
+
+## 후속 발견 (v0.2.0 스파이크, 2026-09-30): Mission Control은 AX로 조작 불가
+
+- 목적: #1(데스크탑 추가), #9(제거)를 Mission Control의 "+" 버튼 / 제거 액션을 AX로 눌러 구현
+- 결과: macOS 27.0.1에서 Dock AX 트리의 `AXGroup id=mc`("Mission Control")는 Mission Control이 열려 있어도
+  **자식 요소 0개**. Ctrl+↑로 열기, `Mission Control.app` 실행, 화면 위쪽 호버로 데스크탑 줄 펼치기 모두 동일.
+  Dock의 `AXWindows`도 0개. → 예전 macOS의 AppleScript 방식("Spaces Bar" 그룹의 버튼) 사용 불가.
+- 스크립트: `spike/missioncontrol.swift`
