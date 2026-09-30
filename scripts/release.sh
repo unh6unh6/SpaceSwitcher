@@ -15,6 +15,7 @@ IDENTITY="SpaceSwitcher Signing"
 DERIVED="build/release/DerivedData"
 BUILT="$DERIVED/Build/Products/Release/$APP_NAME.app"
 TAP_REPO="unh6unh6/homebrew-tap"
+TAP_NAME="unh6unh6/tap"   # how users refer to it: brew strips the "homebrew-" prefix
 CASK="spaceswitcher"
 
 VERSION="${1:-}"
@@ -88,7 +89,7 @@ echo "==> 6/7 GitHub Release"
 REPO_URL=$(gh repo view --json url -q .url)
 gh release create "$TAG" "$DMG" --title "$APP_NAME $VERSION" --generate-notes --notes "$(cat <<NOTES
 ## 설치
-**Homebrew (권장):** \`brew install --cask $TAP_REPO/$CASK\` · 업데이트는 \`brew upgrade --cask $CASK\`
+**Homebrew (권장):** \`brew install --cask $TAP_NAME/$CASK\` · 업데이트는 \`brew upgrade --cask $CASK\`
 
 **직접 설치:**
 1. 아래 **$APP_NAME-$VERSION.dmg** 다운로드 → 열기 → $APP_NAME 을 Applications 폴더로 드래그
@@ -109,4 +110,4 @@ git -C "$TAP_DIR" push -q
 rm -rf "$TAP_DIR"
 
 echo "완료: $(gh release view "$TAG" --json url -q .url)"
-echo "      brew install --cask $TAP_REPO/$CASK"
+echo "      brew install --cask $TAP_NAME/$CASK"

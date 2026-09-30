@@ -156,8 +156,8 @@ SPEC §2의 가정이 실제 맥(macOS 27)에서 맞는지 확인. **틀린 게 
   - 손쉬운 사용 권한 부여
   - "데스크탑 N으로 전환" 단축키 켜기
   - 업데이트: 새 DMG로 덮어쓰기 (권한 유지됨)
-- [ ] 👤 `./scripts/release.sh 0.1.0` 실행 → GitHub Releases 페이지 확인
-- [ ] 🤖 `brew install --cask unh6unh6/tap/spaceswitcher` 실제 설치 검증 (임시 appdir)
+- [x] 👤 `./scripts/release.sh 0.1.0` 실행 → GitHub Releases 페이지 확인 (v0.1.0 게시됨)
+- [x] 🤖 `brew install --cask unh6unh6/tap/spaceswitcher` 실제 설치 검증 (임시 appdir, quarantine 없음 확인)
 - [ ] 👤 지인 1명에게 링크 전달 → README대로 설치되는지 확인 (가능하면 Intel 맥도)
 - [ ] 🤖 지인 피드백 반영해 README 보완
 
