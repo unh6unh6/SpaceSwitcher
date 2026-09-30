@@ -9,16 +9,6 @@
 
 → [`docs/DECISIONS.md`](docs/DECISIONS.md)로 이동 (SPEC보다 우선).
 
-------|------|-------------|
-| 배포 범위 | 나 + 지인. GitHub Releases에 DMG 업로드 | SPEC은 Developer ID+공증 → **유료 계정 없이 진행, 공증 생략** |
-| 서명 | 자체 서명 인증서 `SpaceSwitcher Signing` 하나로 개발·배포 모두 서명 | 빌드해도 손쉬운 사용 권한 유지 |
-| 번들 ID | `io.github.unh6unh6.SpaceSwitcher` | — |
-| 저장소 | GitHub 공개 저장소 `unh6unh6/SpaceSwitcher` | — |
-| 업데이트 | 수동 재설치(DMG) 또는 `brew upgrade`. 외부 의존성 0 | — |
-| Homebrew | 전용 tap `unh6unh6/homebrew-tap` (2026-09-30 추가). 설치 시 quarantine 제거 → "그래도 열기" 불필요 | SPEC의 공식 cask는 공증 필요해 불가 |
-| 초기 선택 | **현재 데스크탑** (2026-09-30 변경). "직전 데스크탑"은 Phase 5 설정에서 선택 | SPEC은 직전 데스크탑(MRU) |
-| 대상 Mac | macOS 14+, Universal(Apple Silicon + Intel) | — |
-
 ---
 
 ## Phase S — 개발 환경 준비 ⏱ 약 1시간 (대부분 Xcode 다운로드 대기)
