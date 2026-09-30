@@ -131,7 +131,7 @@ SPEC §2의 가정이 실제 맥(macOS 27)에서 맞는지 확인. **틀린 게 
 
 ## Phase 6 — 내 맥에 설치 ⏱ 약 30분
 
-- [ ] 🤖 `scripts/install.sh`: Release 빌드 → `/Applications/SpaceSwitcher.app`에 복사 → 실행
+- [x] 🤖 `scripts/install.sh`: Release 빌드 → `/Applications/SpaceSwitcher.app`에 복사 → 실행
 - [ ] 👤 `./scripts/install.sh` 실행 → 손쉬운 사용 권한 부여
 - [ ] 👤 설정에서 "로그인 시 자동 실행" 켜기
 - [ ] 👤 하루 실사용하며 불편한 점 메모 → 다음 작업으로 등록
