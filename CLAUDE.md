@@ -29,6 +29,7 @@ SpaceSwitcher is a macOS menu-bar agent app (`LSUIElement`, no Dock icon). It le
 - The MVP is shipped as v0.1.0 (GitHub Releases plus the Homebrew tap). All further work is **one GitHub issue per unit of work**.
   - If an issue doesn't exist yet, file one first: `gh issue create --label enhancement|bug`.
   - The body covers the goal, approach, risks, a checklist, and an estimate.
+- **Priority** is a label: `priority: high` (must be in the next release), `priority: medium` (next release if time allows), `priority: low` (someday). The user sets it; ask if an issue has none. Pick work in this order: the next milestone's issues first, then by priority. `gh issue list --label "priority: high"`.
 - A **milestone is a release** (e.g. `v0.2.0`).
   - Work through its issues on `main`.
   - Commit locally at sensible checkpoints without asking.
