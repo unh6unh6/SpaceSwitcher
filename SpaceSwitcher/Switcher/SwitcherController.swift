@@ -108,8 +108,7 @@ final class SwitcherController {
             close()
         case .switchTo(let row):
             let target = spaces.indices.contains(row) ? spaces[row] : nil
-            close()
-            if let target { SpaceSwitcherService.switchTo(target) }
+            close { if let target { SpaceSwitcherService.switchTo(target) } }
         case .rename(let row):
             guard spaces.indices.contains(row) else { return }
             model.selection = row
@@ -138,11 +137,12 @@ final class SwitcherController {
         returnFocus()
     }
 
-    private func close() {
+    /// `then` runs once the panel is really off screen, so a following Space switch doesn't animate it (#8).
+    private func close(then: @escaping () -> Void = {}) {
         model.renamingRow = nil
-        panel.orderOut(nil)
         stopClickMonitor()
         returnFocus()
+        panel.hide(then: then)
     }
 
     /// Give the keyboard back to the app the user was in after an inline rename.

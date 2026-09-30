@@ -48,4 +48,30 @@ final class SwitcherPanel: NSPanel {
                         width: size.width, height: size.height), display: true)
         orderFrontRegardless()
     }
+
+    /// Hides the panel and runs `body` once the window server has actually taken it off screen.
+    ///
+    /// `orderOut` returns immediately but the window lingers ~40 ms (measured with CGWindowList, #8).
+    /// A Space switch started in that gap animates with the panel still in the picture, and because the
+    /// panel joins all Spaces it rides along through every step of the Ctrl+←/→ fallback.
+    func hide(then body: @escaping () -> Void) {
+        orderOut(nil)
+        CATransaction.flush()
+        let deadline = Date().addingTimeInterval(0.2)  // never hold the switch back longer than this
+        func poll() {
+            if !isOnScreenForWindowServer || Date() > deadline {
+                body()
+            } else {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.005, execute: poll)
+            }
+        }
+        poll()
+    }
+
+    private var isOnScreenForWindowServer: Bool {
+        guard windowNumber > 0,
+              let info = CGWindowListCopyWindowInfo(.optionIncludingWindow, CGWindowID(windowNumber)) as? [[String: Any]],
+              let window = info.first else { return false }
+        return window[kCGWindowIsOnscreen as String] as? Bool ?? false
+    }
 }
