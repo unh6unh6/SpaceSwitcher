@@ -8,7 +8,7 @@ This directory has its **own git repo**, separate from the parent `vibecoding/` 
 
 ## Status
 
-Progress is tracked in `TODO.md` as checkboxes. Check items off as you finish them. Its "확정된 결정" table **overrides SPEC** on distribution: no paid Apple account, no notarization, one self-signed cert `SpaceSwitcher Signing` for all builds, bundle ID `io.github.unh6unh6.SpaceSwitcher`, and DMGs on public GitHub Releases. Only `SPEC.md` exists so far. Implement phase by phase per SPEC §6, starting with the **Phase 0 verification spike**. Each phase has a completion condition, and you don't move on until it's met. Phase 0 findings go in `docs/phase0-findings.md`. If they contradict the assumptions in SPEC §2, stop and discuss with the user.
+Progress is tracked in `TODO.md` as checkboxes. Check items off as you finish them. Its "확정된 결정" table **overrides SPEC** on distribution: no paid Apple account, no notarization, one self-signed cert `SpaceSwitcher Signing` for all builds, bundle ID `io.github.unh6unh6.SpaceSwitcher`, and DMGs on public GitHub Releases. It also overrides SPEC on the switcher's initial selection: the current desktop by default, with "previous" as a Settings option. All MVP phases are done. Verified platform facts and gotchas are in `docs/phase0-findings.md`; one example is that synthesized Ctrl keys stick unless you post key-ups.
 
 ## Post-MVP workflow: GitHub issues + milestones
 
@@ -22,6 +22,7 @@ MVP (TODO.md Phase S–7) is done and v0.1.0 is released. New features and bugs 
 
 - Build: `xcodegen generate && xcodebuild -scheme SpaceSwitcher -configuration Debug build`
 - Test: `xcodebuild test -scheme SpaceSwitcher -destination 'platform=macOS'`
+- Install locally: `./scripts/install.sh` (Release build to `/Applications`). Publish: `./scripts/release.sh <x.y.z>` (`--dry-run` stops after the DMG).
 - Single test: append `-only-testing:SpaceSwitcherTests/<TestClass>/<testMethod>` to the test command.
 - `project.yml` (XcodeGen) is the source of truth. Re-run `xcodegen generate` after adding or removing files, and never edit `.xcodeproj` directly.
 
@@ -33,7 +34,7 @@ macOS has no public Spaces API, so the app combines three mechanisms:
 2. **Switching:** don't use the private set-space API. Instead, synthesize the system "Switch to Desktop N" shortcut with `CGEvent`. Read its keycode and modifiers from `com.apple.symbolichotkeys` (IDs 118–133) rather than hardcoding them. If that shortcut is disabled, or the target is desktop 17 or higher, fall back to repeated `Ctrl+←/→`. This requires the Accessibility permission.
 3. **Global hotkey:** a `CGEventTap` on `keyDown` + `flagsChanged`, not Carbon `RegisterEventHotKey`. Carbon blocks Option-only combos on macOS 15, and cycle mode needs to detect when the modifier is released. The tap consumes matched `keyDown` events by returning `nil`; otherwise the `´` dead key gets typed. It re-enables itself on `tapDisabledByTimeout`/`tapDisabledByUserInput`, and it hands UI work to the main thread.
 
-The switcher is a **pure state machine** (`Switcher/SwitcherStateMachine.swift`: event enum in, action enum out) with the states Idle, Holding, and Sticky, per SPEC §3.1. Releasing the modifier after one press enters Sticky (popup mode). Releasing it after two or more presses switches desktops (cycle mode). The list is displayed in desktop order, and only the *initial selection* is MRU-based (the previous desktop). The `EventTap` and `SwitcherPanel` (an `NSPanel` with `[.canJoinAllSpaces, .fullScreenAuxiliary, .transient]`) are thin adapters around it. Names persist in `~/Library/Application Support/SpaceSwitcher/names.json`. Names for uuids that no longer exist are kept, not pruned automatically.
+The switcher is a **pure state machine** (`Switcher/SwitcherStateMachine.swift`: event enum in, action enum out) with the states Idle, Holding, and Sticky, per SPEC §3.1. Releasing the modifier after one press enters Sticky (popup mode). Releasing it after two or more presses switches desktops (cycle mode). The list is displayed in desktop order. The *initial selection* is the current desktop, or the MRU previous desktop if the user picks that in Settings (`InitialSelection`). The `EventTap` and `SwitcherPanel` (an `NSPanel` with `[.canJoinAllSpaces, .fullScreenAuxiliary, .transient]`) are thin adapters around it. Names persist in `~/Library/Application Support/SpaceSwitcher/names.json`. Names for uuids that no longer exist are kept, not pruned automatically.
 
 ## Rules (SPEC §5)
 
