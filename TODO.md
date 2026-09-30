@@ -141,14 +141,14 @@ SPEC §2의 가정이 실제 맥(macOS 27)에서 맞는지 확인. **틀린 게 
 
 ## Phase 7 — 지인 배포 ⏱ 약 2시간 (최초), 이후 릴리스마다 약 5분
 
-- [ ] 🤖 `git branch -m main` → `gh repo create unh6unh6/SpaceSwitcher --public --source . --push` (Phase S에서 연기됨, 실행 전 사용자 확인)
-- [ ] 🤖 `project.yml`에 버전 필드 정리 (`MARKETING_VERSION`, `CURRENT_PROJECT_VERSION`)
-- [ ] 🤖 `scripts/release.sh <버전>`:
+- [x] 🤖 `git branch -m main` → `gh repo create unh6unh6/SpaceSwitcher --public --source . --push` (Phase S에서 연기됨, 실행 전 사용자 확인)
+- [x] 🤖 `project.yml`에 버전 필드 정리 (`MARKETING_VERSION`, `CURRENT_PROJECT_VERSION`)
+- [x] 🤖 `scripts/release.sh <버전>`:
   - Universal(arm64+x86_64) Release 빌드
   - `SpaceSwitcher Signing`으로 서명 + `codesign --verify` 검사
   - `hdiutil`로 DMG 생성 (앱 + Applications 바로가기)
   - `gh release create v<버전> SpaceSwitcher.dmg`
-- [ ] 🤖 `README.md` (한국어): 기능 소개, 스크린샷 자리, **지인용 설치 방법**
+- [x] 🤖 `README.md` (한국어): 기능 소개, 스크린샷 자리, **지인용 설치 방법**
   - DMG 열기 → Applications로 드래그
   - 첫 실행 차단 시: 시스템 설정 → 개인정보 보호 및 보안 → "그래도 열기"
   - 손쉬운 사용 권한 부여
