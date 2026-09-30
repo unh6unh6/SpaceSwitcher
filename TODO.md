@@ -165,16 +165,10 @@ SPEC §2의 가정이 실제 맥(macOS 27)에서 맞는지 확인. **틀린 게 
 
 ---
 
-## 개선 목록 (계속 추가)
+## 이후 작업 → GitHub 이슈 (2026-09-30부터)
 
-쓰면서 불편한 점을 여기에 쌓는다. 고친 뒤 `./scripts/install.sh`로 내 맥에 반영, 지인에게는 `release.sh`로 새 버전.
+MVP(Phase S~7) 이후의 기능 개선·버그는 이 파일이 아니라 **[GitHub 이슈](https://github.com/unh6unh6/SpaceSwitcher/issues)**로 관리한다.
 
-- [ ] 👤 실사용하며 불편한 점 메모 → 아래에 한 줄씩 추가
-
-## 나중에 (MVP 이후, 지금은 안 함)
-
-- [ ] 다중 모니터 지원 (SPEC §8-3)
-- [ ] 전체화면 앱 Space 목록 포함 (SPEC §8-4)
-- [ ] 앱 아이콘 / 메뉴바 아이콘 디자인 (SPEC §8-5)
-- [ ] 새 버전 알림 또는 Sparkle 자동 업데이트
-- [ ] Apple Developer Program 가입 → 공증 (지인이 "그래도 열기"를 안 해도 되게)
+- 이슈 여러 개를 **마일스톤**(예: [`v0.2.0`](https://github.com/unh6unh6/SpaceSwitcher/milestone/1))으로 묶어 릴리스 단위로 작업
+- 커밋은 로컬에 쌓고 메시지에 `Closes #N` → 마일스톤이 끝나면 `./scripts/release.sh <버전>` (푸시되면서 이슈 자동 종료)
+- 옮겨진 항목: #1 새 데스크탑 추가 · #2 다중 모니터 · #3 전체화면 앱 목록 · #4 아이콘 · #5 업데이트 알림 · #6 공증

@@ -10,6 +10,14 @@ This directory has its **own git repo**, separate from the parent `vibecoding/` 
 
 Progress is tracked in `TODO.md` as checkboxes. Check items off as you finish them. Its "확정된 결정" table **overrides SPEC** on distribution: no paid Apple account, no notarization, one self-signed cert `SpaceSwitcher Signing` for all builds, bundle ID `io.github.unh6unh6.SpaceSwitcher`, and DMGs on public GitHub Releases. Only `SPEC.md` exists so far. Implement phase by phase per SPEC §6, starting with the **Phase 0 verification spike**. Each phase has a completion condition, and you don't move on until it's met. Phase 0 findings go in `docs/phase0-findings.md`. If they contradict the assumptions in SPEC §2, stop and discuss with the user.
 
+## Post-MVP workflow: GitHub issues + milestones
+
+MVP (TODO.md Phase S–7) is done and v0.1.0 is released. New features and bugs are tracked as GitHub issues on `unh6unh6/SpaceSwitcher`, not in TODO.md.
+
+- Every piece of work maps to an issue. File one (`gh issue create`) before starting if it doesn't exist.
+- Issues are grouped into a milestone per release (e.g. `v0.2.0`). Work through the milestone's issues on `main`, with local commits whose message ends with `Closes #N`.
+- Don't push while a milestone is in progress. When all its issues are done, the user runs `./scripts/release.sh <version>`. That pushes (auto-closing the issues), creates the GitHub Release, and updates the Homebrew tap `unh6unh6/homebrew-tap`. Then close the milestone.
+
 ## Commands
 
 - Build: `xcodegen generate && xcodebuild -scheme SpaceSwitcher -configuration Debug build`
@@ -33,5 +41,5 @@ The switcher is a **pure state machine** (`Switcher/SwitcherStateMachine.swift`:
 - Permissions, hotkeys, and Spaces behavior can't be verified automatically. When you change them, list the relevant items from the SPEC §7 manual checklist in your result so the user can check them.
 - If an assumption from SPEC §2 turns out wrong, report back and ask. Don't work around it.
 - The SPEC §8 open questions (bundle ID, etc.) are the user's call. Ask when you reach them.
-- Commit after each phase: `phaseN: <summary>`.
+- Commit messages: `phaseN: <summary>` during the MVP phases; after that, `<summary> (Closes #N)` style per issue.
 - There are no external dependencies. Use SPM only if one is truly needed. App Sandbox stays disabled.
