@@ -14,6 +14,9 @@ final class SettingsModel: ObservableObject {
     @Published var initialSelection = InitialSelection.stored {
         didSet { InitialSelection.store(initialSelection) }
     }
+    @Published var menuBar = MenuBarTitle.Settings.load() {
+        didSet { menuBar.save() }
+    }
     @Published var showAppIcons = SpaceApps.showIcons() {
         didSet { SpaceApps.setShowIcons(showAppIcons) }
     }
@@ -65,7 +68,7 @@ struct SettingsView: View {
                 .tabItem { Label("권한", systemImage: "lock.shield") }.tag(SettingsTab.permissions)
         }
         .padding(20)
-        .frame(width: 520, height: 440)
+        .frame(width: 540, height: 560)
         .onAppear(perform: model.reload)
     }
 }
@@ -89,6 +92,20 @@ private struct GeneralTab: View {
                 if let error = model.launchError {
                     Text(error).font(.callout).foregroundStyle(.red)
                 }
+            }
+            Section("메뉴바 표시") {
+                Picker("표시 방식", selection: $model.menuBar.style) {
+                    Text("이름만  (업무)").tag(MenuBarTitle.Style.name)
+                    Text("번호 + 이름  (2 업무)").tag(MenuBarTitle.Style.numberAndName)
+                    Text("점  (○ ● ○)").tag(MenuBarTitle.Style.dots)
+                    Text("점 + 이름  (○ ● ○ 업무)").tag(MenuBarTitle.Style.dotsAndName)
+                    Text("번호만  (2)").tag(MenuBarTitle.Style.number)
+                }
+                Picker("이름 최대 길이", selection: $model.menuBar.maxLength) {
+                    ForEach(MenuBarTitle.lengthOptions, id: \.self) { Text("\($0)자").tag($0) }
+                }
+                .pickerStyle(.segmented)
+                .disabled([.dots, .number].contains(model.menuBar.style))
             }
             Section("데스크탑 이동 시 이름 표시") {
                 Toggle("화면에 데스크탑 이름 잠깐 표시", isOn: $model.hud.isEnabled)

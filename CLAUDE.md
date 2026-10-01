@@ -100,7 +100,7 @@ macOS has no public Spaces API, so the app combines three mechanisms.
 - Per-desktop app icons in the switcher (#14): `Spaces/SpaceApps` (pure: filter layer-0, ≥50 px, regular apps; sort by window count) fed by `SpaceAppsProvider` (`CGWindowList` + `CGSCopySpacesForWindows`). UserDefaults `switcherShowAppIcons`. The controller warms the panel up at `start()` to keep the first open under 100 ms.
 - `HUD/` shows the desktop name briefly on every Space change (#13): `SpaceHUDContent`/`SpaceHUDSettings` are pure (UserDefaults `hudEnabled`/`hudDuration`/`hudPosition`); `SpaceHUDPanel` is a click-through panel on all Spaces.
 - `Store/NameStore` persists `names.json`: 30-character cap, an empty value deletes, unknown ids are kept.
-- `MenuBar/StatusItemController` shows the name and the menu, with a warning prefix when Accessibility is missing.
+- `MenuBar/StatusItemController` shows the title and the menu, with a warning prefix when Accessibility is missing. The title comes from `MenuBarTitle` (pure; styles name / number+name / dots / dots+name / number, max name length; UserDefaults `menuBarStyle`/`menuBarMaxLength`) (#15).
 - `Onboarding/PermissionMonitor` polls AX trust and missing desktop shortcuts every 1 s on a background queue.
 - `Settings/` is a plain `NSWindow`, not the SwiftUI `Settings` scene. Tabs: General, Shortcut (the recorder suspends the tap), Desktops, Permissions.
 - `App/AppDelegate` assembles everything. It skips the tap and onboarding when hosting unit tests.

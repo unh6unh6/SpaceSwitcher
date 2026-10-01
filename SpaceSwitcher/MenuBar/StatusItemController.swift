@@ -3,8 +3,6 @@ import Combine
 
 /// Menu bar item: shows the current desktop and lists all desktops.
 final class StatusItemController: NSObject, NSMenuDelegate {
-    /// Longer names are cut with "…" in the menu bar only (SPEC §3.5); menus show the full name.
-    private static let maxTitleLength = 20
 
     private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
     private let menu = NSMenu()
@@ -31,19 +29,23 @@ final class StatusItemController: NSObject, NSMenuDelegate {
             name: NSWorkspace.activeSpaceDidChangeNotification, object: nil)
         NotificationCenter.default.addObserver(
             self, selector: #selector(refreshTitle), name: NameStore.didChange, object: names)
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(refreshTitle), name: MenuBarTitle.Settings.didChange, object: nil)
         permissions.$isTrusted
             .removeDuplicates()
             .sink { [weak self] _ in DispatchQueue.main.async { self?.refreshTitle() } }
             .store(in: &cancellables)
     }
 
+    /// Style and name length come from Settings → General (#15). Long names are cut only here;
+    /// menus show the full name (SPEC §3.5).
     @objc private func refreshTitle() {
-        let current = SpaceProvider.spaces().first(where: \.isCurrent)
-        var name = current.map(names.displayName) ?? "전체화면"
-        if name.count > Self.maxTitleLength {
-            name = String(name.prefix(Self.maxTitleLength - 1)) + "…"
-        }
-        statusItem.button?.title = permissions.isTrusted ? name : "⚠︎ \(name)"
+        let spaces = SpaceProvider.spaces()
+        let current = spaces.first(where: \.isCurrent)
+        let settings = MenuBarTitle.Settings.load()
+        let title = MenuBarTitle.text(style: settings.style, currentIndex: current?.index, desktopCount: spaces.count,
+                                      name: current.flatMap { names.name(for: $0.id) }, maxLength: settings.maxLength)
+        statusItem.button?.title = permissions.isTrusted ? title : "⚠︎ \(title)"
     }
 
     // Rebuilt on every open because desktop add/remove/reorder has no notification.
