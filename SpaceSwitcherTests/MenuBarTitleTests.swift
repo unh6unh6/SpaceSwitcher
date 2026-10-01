@@ -54,12 +54,12 @@ final class MenuBarTitleTests: XCTestCase {
         let suite = "SpaceSwitcherTests.MenuBarTitle"
         let defaults = UserDefaults(suiteName: suite)!
         defaults.removePersistentDomain(forName: suite)
-        XCTAssertEqual(MenuBarTitle.Settings.load(from: defaults), MenuBarTitle.Settings(style: .name, maxLength: 20))
+        XCTAssertEqual(MenuBarTitle.Settings.load(from: defaults), MenuBarTitle.Settings(style: .dotsAndName, maxLength: 20))
 
-        MenuBarTitle.Settings(style: .dotsAndName, maxLength: 10).save(to: defaults)
-        XCTAssertEqual(MenuBarTitle.Settings.load(from: defaults), MenuBarTitle.Settings(style: .dotsAndName, maxLength: 10))
+        MenuBarTitle.Settings(style: .numberAndName, maxLength: 10).save(to: defaults)
+        XCTAssertEqual(MenuBarTitle.Settings.load(from: defaults), MenuBarTitle.Settings(style: .numberAndName, maxLength: 10))
 
         defaults.set("rainbow", forKey: "menuBarStyle")
-        XCTAssertEqual(MenuBarTitle.Settings.load(from: defaults).style, .name)
+        XCTAssertEqual(MenuBarTitle.Settings.load(from: defaults).style, .dotsAndName)
     }
 }

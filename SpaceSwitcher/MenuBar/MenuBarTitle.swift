@@ -42,7 +42,8 @@ enum MenuBarTitle {
     }
 
     struct Settings: Equatable {
-        var style = Style.name
+        /// Default chosen by the user (2026-10-02): position and name at a glance.
+        var style = Style.dotsAndName
         var maxLength = 20
 
         static let didChange = Notification.Name("MenuBarTitle.Settings.didChange")
