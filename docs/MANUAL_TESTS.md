@@ -41,6 +41,7 @@ SPEC §7을 바탕으로 개발 중 발견한 항목을 더했다. 새 버그를
 - [ ] 첫 선택 "직전 데스크탑"으로 변경 → 떠나온 데스크탑이 선택됨
 - [ ] 로그인 시 자동 실행 on → 재부팅/재로그인 후 메뉴바에 앱
 - [ ] 슬립/깨우기 후에도 단축키 동작 (이벤트 탭 재활성화)
+- [ ] (#10) 앱 재설치 직후 · 데스크탑 연속 전환 중에도 Option+E가 ´ 없이 뜸. 이상하면 `log show --last 10m --predicate 'subsystem == "io.github.unh6unh6.SpaceSwitcher"'`에 slow tap / disabled 기록 확인
 
 ## 배포 (릴리스 후)
 - [ ] `brew install --cask unh6unh6/tap/spaceswitcher` → quarantine 없이 바로 실행

@@ -5,19 +5,26 @@ import AppKit
 /// Keys in Sticky stay on the event tap rather than making the panel the key window:
 /// becoming key requires activating the app, which steals focus from the user's app and
 /// can pull macOS onto another Space. Only inline rename activates, because a text field needs it.
+///
+/// Threading (#10): the event tap runs on its own thread. Everything under "tap thread" is only touched
+/// there (via `tap.perform` from elsewhere); everything under "main thread" is UI. Actions cross over with
+/// a snapshot of the desktop list, so the two sides never share mutable state.
 final class SwitcherController {
+    // MARK: tap thread
+    private var machine: SwitcherStateMachine!
+    private var mru = MRUTracker()
     /// Follows Settings immediately via `Shortcut.didChange` (SPEC §3.6).
-    private(set) var shortcut = Shortcut.stored()
-    /// While the Settings recorder listens, every key must reach it, including the current shortcut.
-    var isSuspended = false
+    private var shortcut = Shortcut.stored()
+    private var suspended = false
+    /// Desktops read when the panel opened, as seen by the machine.
+    private var tapSpaces: [Space] = []
 
+    // MARK: main thread
     private let names: NameStore
     private let tap = EventTap()
     private let model = SwitcherViewModel()
     private lazy var panel = SwitcherPanel(model: model)
-    private var machine: SwitcherStateMachine!
-    private var mru = MRUTracker()
-    /// Desktops as they were when the panel opened; rows index into this.
+    /// Desktops shown in the panel; rows index into this.
     private var spaces: [Space] = []
     private var clickMonitor: Any?
     private var activatedForRename = false
@@ -27,24 +34,24 @@ final class SwitcherController {
     init(names: NameStore) {
         self.names = names
         machine = SwitcherStateMachine { [unowned self] in
-            spaces = SpaceProvider.spaces()
-            return (count: spaces.count, initial: mru.initialSelection(InitialSelection.stored, in: spaces))
+            tapSpaces = SpaceProvider.spaces()
+            return (count: tapSpaces.count, initial: mru.initialSelection(InitialSelection.stored, in: tapSpaces))
         }
 
         tap.onKeyDown = { [weak self] key in self?.handleKey(key) ?? false }
         tap.onFlagsChanged = { [weak self] previous, current in
-            guard let self, !isSuspended, KeyMapper.modifierReleased(previous: previous, current: current, shortcut: shortcut)
+            guard let self, !suspended, KeyMapper.modifierReleased(previous: previous, current: current, shortcut: shortcut)
             else { return }
             send(.modifierReleased)
         }
 
-        model.onClick = { [weak self] row in self?.send(.select(row)) }
+        model.onClick = { [weak self] row in self?.sendFromMain(.select(row)) }
         model.onDoubleClick = { [weak self] row in
-            self?.send(.highlight(row))
-            self?.send(.beginRename)
+            self?.sendFromMain(.highlight(row))
+            self?.sendFromMain(.beginRename)
         }
         model.onCommitRename = { [weak self] text in self?.commitRename(text) }
-        model.onCancelRename = { [weak self] in self?.send(.endRename) }
+        model.onCancelRename = { [weak self] in self?.sendFromMain(.endRename) }
 
         recordCurrentSpace()
         let workspace = NSWorkspace.shared.notificationCenter
@@ -54,14 +61,20 @@ final class SwitcherController {
         // If the app gets hidden (e.g. Cmd+H while renaming), the panel goes with it; resync the machine
         // or the tap keeps swallowing keys for an invisible panel (#7).
         NotificationCenter.default.addObserver(forName: NSApplication.didHideNotification, object: nil, queue: .main) { [weak self] _ in
-            self?.send(.dismissed)
+            self?.sendFromMain(.dismissed)
         }
         workspace.addObserver(forName: NSWorkspace.didWakeNotification, object: nil, queue: .main) { [weak self] _ in
             self?.tap.ensureEnabled()
         }
         NotificationCenter.default.addObserver(forName: Shortcut.didChange, object: nil, queue: .main) { [weak self] _ in
-            self?.shortcut = Shortcut.stored()
+            let shortcut = Shortcut.stored()
+            self?.tap.perform { self?.shortcut = shortcut }
         }
+    }
+
+    /// While the Settings recorder listens, every key must reach it, including the current shortcut.
+    func setSuspended(_ value: Bool) {
+        tap.perform { [weak self] in self?.suspended = value }
     }
 
     /// Needs Accessibility; returns false until it is granted.
@@ -72,9 +85,9 @@ final class SwitcherController {
 
     // MARK: input
 
-    /// Runs inside the tap callback on the main thread: decide synchronously, render asynchronously.
+    /// Runs inside the tap callback on the tap thread: decide synchronously, render asynchronously.
     private func handleKey(_ key: EventTap.KeyEvent) -> Bool {
-        if isSuspended { return false }
+        if suspended { return false }
         let decision = KeyMapper.map(keyCode: key.keyCode, flags: key.flags, isAutorepeat: key.isAutorepeat,
                                      shortcut: shortcut, capturing: machine.isCapturingKeys)
         switch decision {
@@ -86,16 +99,23 @@ final class SwitcherController {
         }
     }
 
+    /// Tap thread only.
     private func send(_ event: SwitcherStateMachine.Event) {
         guard let action = machine.handle(event) else { return }
-        DispatchQueue.main.async { [weak self] in self?.perform(action) }
+        let snapshot = tapSpaces
+        DispatchQueue.main.async { [weak self] in self?.perform(action, spaces: snapshot) }
     }
 
-    // MARK: output
+    private func sendFromMain(_ event: SwitcherStateMachine.Event) {
+        tap.perform { [weak self] in self?.send(event) }
+    }
 
-    private func perform(_ action: SwitcherStateMachine.Action) {
+    // MARK: output (main thread)
+
+    private func perform(_ action: SwitcherStateMachine.Action, spaces snapshot: [Space]) {
         switch action {
         case .show(let selection):
+            spaces = snapshot
             reloadRows()
             model.selection = selection
             model.renamingRow = nil
@@ -107,7 +127,7 @@ final class SwitcherController {
         case .hide:
             close()
         case .switchTo(let row):
-            let target = spaces.indices.contains(row) ? spaces[row] : nil
+            let target = snapshot.indices.contains(row) ? snapshot[row] : nil
             close { if let target { SpaceSwitcherService.switchTo(target) } }
         case .rename(let row):
             guard spaces.indices.contains(row) else { return }
@@ -128,7 +148,7 @@ final class SwitcherController {
         guard let row = model.renamingRow, spaces.indices.contains(row) else { return }
         names.setName(text, for: spaces[row].id)
         reloadRows()
-        send(.endRename)
+        sendFromMain(.endRename)
     }
 
     /// Enter and Esc both land here; the panel stays open in Sticky (#7).
@@ -167,14 +187,15 @@ final class SwitcherController {
     }
 
     private func recordCurrentSpace() {
-        if let current = SpaceProvider.spaces().first(where: \.isCurrent) { mru.visit(current.id) }
+        guard let current = SpaceProvider.spaces().first(where: \.isCurrent) else { return }
+        tap.perform { [weak self] in self?.mru.visit(current.id) }
     }
 
     // Global monitors only see events aimed at other apps, i.e. clicks outside the panel.
     private func startClickMonitor() {
         guard clickMonitor == nil else { return }
         clickMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] _ in
-            self?.send(.clickOutside)
+            self?.sendFromMain(.clickOutside)
         }
     }
 

@@ -8,7 +8,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private lazy var switcher = SwitcherController(names: names)
     private lazy var settingsWindow = SettingsWindowController(model: SettingsModel(
         names: names, permissions: permissions,
-        setSwitcherSuspended: { [weak self] in self?.switcher.isSuspended = $0 }))
+        setSwitcherSuspended: { [weak self] in self?.switcher.setSuspended($0) }))
     private var statusItemController: StatusItemController?
     private var cancellables = Set<AnyCancellable>()
 

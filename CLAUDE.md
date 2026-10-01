@@ -81,7 +81,7 @@ macOS has no public Spaces API, so the app combines three mechanisms.
    - `SpaceSwitcherService` posts the `CGEvent`s, then posts modifier key-ups via `ModifierRelease`. Without them, synthesized Ctrl sticks and the next Option+E beeps.
    - Needs Accessibility. Without it, the events are dropped silently.
 3. **Global hotkey** (`Hotkey/`):
-   - `EventTap` is a session `CGEventTap` on `keyDown` + `flagsChanged`, running on the main run loop. It re-enables itself after timeouts and on wake. (Carbon hotkeys can't do Option-only combos on macOS 15+ and can't see a modifier being released.)
+   - `EventTap` is a session `CGEventTap` on `keyDown` + `flagsChanged`, running on **its own thread** (#10: a stalled main thread made macOS bypass the tap). It re-enables itself after timeouts and on wake, and logs slow callbacks / disables to the unified log (subsystem = bundle ID). (Carbon hotkeys can't do Option-only combos on macOS 15+ and can't see a modifier being released.)
    - `KeyMapper` (pure) maps keys to switcher events and decides pass or consume. It ignores autorepeat of the shortcut key.
    - `Shortcut` handles validation, the UserDefaults key `switcherShortcut`, and a `didChange` notification.
 
@@ -90,6 +90,7 @@ macOS has no public Spaces API, so the app combines three mechanisms.
   - Releasing the modifier after 1 press enters Sticky (popup mode).
   - Releasing it after ≥ 2 presses switches (cycle mode).
 - `SwitcherController` wires the tap, machine, `SwitcherPanel`, and stores together.
+  - The machine, MRU, and shortcut live on the tap thread (reach them via `tap.perform`); UI lives on main. Actions cross to main with a snapshot of the desktop list.
   - It decides consumption synchronously in the tap callback and renders asynchronously.
   - Keys stay on the tap even in Sticky. Only inline rename activates the app.
 - `SwitcherPanel` is a non-activating `NSPanel` at `.popUpMenu` level with `[.canJoinAllSpaces, .fullScreenAuxiliary, .transient]`.
@@ -98,7 +99,7 @@ macOS has no public Spaces API, so the app combines three mechanisms.
 **Other components:**
 - `Store/NameStore` persists `names.json`: 30-character cap, an empty value deletes, unknown ids are kept.
 - `MenuBar/StatusItemController` shows the name and the menu, with a warning prefix when Accessibility is missing.
-- `Onboarding/PermissionMonitor` polls AX trust and missing desktop shortcuts every 1 s.
+- `Onboarding/PermissionMonitor` polls AX trust and missing desktop shortcuts every 1 s on a background queue.
 - `Settings/` is a plain `NSWindow`, not the SwiftUI `Settings` scene. Tabs: General, Shortcut (the recorder suspends the tap), Desktops, Permissions.
 - `App/AppDelegate` assembles everything. It skips the tap and onboarding when hosting unit tests.
 

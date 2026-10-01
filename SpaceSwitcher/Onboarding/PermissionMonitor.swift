@@ -16,16 +16,27 @@ final class PermissionMonitor: ObservableObject {
         timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in self?.refresh() }
     }
 
-    func refresh() {
-        let trusted = AXIsProcessTrusted()
-        if trusted != isTrusted { isTrusted = trusted }
+    /// The checks talk to WindowServer and cfprefsd, which can stall; keep them off the main thread (#10).
+    private let queue = DispatchQueue(label: "SpaceSwitcher.PermissionMonitor", qos: .utility)
+    private var checking = false
 
-        let hotkeys = SymbolicHotKeys.load()
-        let missing = SpaceProvider.spaces().map(\.index).filter { index in
-            guard let id = SymbolicHotKeys.desktopID(index) else { return false }
-            return hotkeys[id] == nil
+    func refresh() {
+        guard !checking else { return }  // a stalled check must not pile up a queue of new ones
+        checking = true
+        queue.async { [weak self] in
+            let trusted = AXIsProcessTrusted()
+            let hotkeys = SymbolicHotKeys.load()
+            let missing = SpaceProvider.spaces().map(\.index).filter { index in
+                guard let id = SymbolicHotKeys.desktopID(index) else { return false }
+                return hotkeys[id] == nil
+            }
+            DispatchQueue.main.async {
+                guard let self else { return }
+                self.checking = false
+                if trusted != self.isTrusted { self.isTrusted = trusted }
+                if missing != self.desktopsWithoutShortcut { self.desktopsWithoutShortcut = missing }
+            }
         }
-        if missing != desktopsWithoutShortcut { desktopsWithoutShortcut = missing }
     }
 
     /// Shows the system "allow Accessibility" prompt (only the first time per app identity).
