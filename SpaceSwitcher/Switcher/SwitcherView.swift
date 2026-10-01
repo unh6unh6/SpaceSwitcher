@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 final class SwitcherViewModel: ObservableObject {
@@ -7,6 +8,9 @@ final class SwitcherViewModel: ObservableObject {
         let title: String
         let isNamed: Bool
         let isCurrent: Bool
+        /// Apps with windows on this desktop (#14); nil when the setting is off.
+        var apps: [SpaceApps.App]? = nil
+        var overflow = 0
     }
 
     @Published var rows: [Row] = []
@@ -39,7 +43,33 @@ struct SwitcherView: View {
                 .padding(.horizontal, 10)
         }
         .padding(10)
-        .frame(width: 340)
+        .frame(width: model.rows.contains { $0.apps != nil } ? 440 : 340)
+    }
+
+    /// Up to 5 app icons, "+N" for the rest, or "(비어 있음)" for a desktop without windows.
+    @ViewBuilder
+    private func appIcons(_ apps: [SpaceApps.App], overflow: Int, selected: Bool) -> some View {
+        if apps.isEmpty {
+            Text("(비어 있음)")
+                .font(.caption)
+                .foregroundStyle(selected ? .white.opacity(0.7) : .secondary)
+        } else {
+            HStack(spacing: 3) {
+                ForEach(apps, id: \.pid) { app in
+                    if let icon = NSRunningApplication(processIdentifier: app.pid)?.icon {
+                        Image(nsImage: icon)
+                            .resizable()
+                            .frame(width: 18, height: 18)
+                            .help(app.name)
+                    }
+                }
+                if overflow > 0 {
+                    Text("+\(overflow)")
+                        .font(.caption)
+                        .foregroundStyle(selected ? .white.opacity(0.8) : .secondary)
+                }
+            }
+        }
     }
 
     @ViewBuilder
@@ -66,6 +96,9 @@ struct SwitcherView: View {
             }
 
             Spacer(minLength: 4)
+            if let apps = row.apps, model.renamingRow != index {
+                appIcons(apps, overflow: row.overflow, selected: selected)
+            }
             if row.isCurrent {
                 Text("현재")
                     .font(.caption)

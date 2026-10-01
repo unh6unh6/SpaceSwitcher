@@ -14,6 +14,9 @@ final class SettingsModel: ObservableObject {
     @Published var initialSelection = InitialSelection.stored {
         didSet { InitialSelection.store(initialSelection) }
     }
+    @Published var showAppIcons = SpaceApps.showIcons() {
+        didSet { SpaceApps.setShowIcons(showAppIcons) }
+    }
     @Published var hud = SpaceHUDSettings.load() {
         didSet { hud.save() }
     }
@@ -104,6 +107,7 @@ private struct GeneralTab: View {
                 .disabled(!model.hud.isEnabled)
             }
             Section {
+                Toggle("스위처 목록에 데스크탑별 앱 아이콘 표시", isOn: $model.showAppIcons)
                 Picker("스위처를 열 때 처음 선택", selection: $model.initialSelection) {
                     Text("현재 데스크탑").tag(InitialSelection.current)
                     Text("직전 데스크탑").tag(InitialSelection.previous)

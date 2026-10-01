@@ -80,7 +80,15 @@ final class SwitcherController {
     /// Needs Accessibility; returns false until it is granted.
     @discardableResult
     func start() -> Bool {
-        tap.start()
+        // Build the panel and touch the window list once now, so the first Option+E doesn't pay for it
+        // (first open measured 106 ms cold vs ~30 ms warm with app icons on).
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            spaces = SpaceProvider.spaces()
+            reloadRows()
+            panel.layoutIfNeeded()
+        }
+        return tap.start()
     }
 
     // MARK: input
@@ -179,10 +187,20 @@ final class SwitcherController {
         focusBeforeRename = nil
     }
 
+    /// Icons per desktop (#14); 5 icons per row keeps the 16-row panel compact.
+    private static let iconLimit = 5
+
     private func reloadRows() {
+        let appsBySpace = SpaceApps.showIcons() ? SpaceAppsProvider.current() : nil
         model.rows = spaces.map { space in
-            SwitcherViewModel.Row(id: space.id, number: space.index, title: names.displayName(for: space),
-                                  isNamed: names.name(for: space.id) != nil, isCurrent: space.isCurrent)
+            var row = SwitcherViewModel.Row(id: space.id, number: space.index, title: names.displayName(for: space),
+                                            isNamed: names.name(for: space.id) != nil, isCurrent: space.isCurrent)
+            if let appsBySpace {
+                let shown = SpaceApps.visible(appsBySpace[space.managedID] ?? [], limit: Self.iconLimit)
+                row.apps = shown.apps
+                row.overflow = shown.overflow
+            }
+            return row
         }
     }
 
