@@ -6,6 +6,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let permissions = PermissionMonitor()
     private lazy var permissionsWindow = PermissionsWindowController(monitor: permissions)
     private lazy var switcher = SwitcherController(names: names)
+    private var hud: SpaceHUDController?
     private lazy var settingsWindow = SettingsWindowController(model: SettingsModel(
         names: names, permissions: permissions,
         setSwitcherSuspended: { [weak self] in self?.switcher.setSuspended($0) }))
@@ -23,6 +24,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             showPermissions: { [weak self] in self?.permissionsWindow.show() },
             showSettings: { [weak self] in self?.settingsWindow.show() })
         guard !isRunningTests else { return }
+        hud = SpaceHUDController(names: names)
 
         // The event tap can only be created once Accessibility is granted; retry when it is.
         permissions.$isTrusted

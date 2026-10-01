@@ -14,6 +14,9 @@ final class SettingsModel: ObservableObject {
     @Published var initialSelection = InitialSelection.stored {
         didSet { InitialSelection.store(initialSelection) }
     }
+    @Published var hud = SpaceHUDSettings.load() {
+        didSet { hud.save() }
+    }
 
     let names: NameStore
     let permissions: PermissionMonitor
@@ -83,6 +86,22 @@ private struct GeneralTab: View {
                 if let error = model.launchError {
                     Text(error).font(.callout).foregroundStyle(.red)
                 }
+            }
+            Section("데스크탑 이동 시 이름 표시") {
+                Toggle("화면에 데스크탑 이름 잠깐 표시", isOn: $model.hud.isEnabled)
+                Picker("표시 시간", selection: $model.hud.duration) {
+                    Text("짧게").tag(SpaceHUDSettings.Duration.short)
+                    Text("보통").tag(SpaceHUDSettings.Duration.normal)
+                    Text("길게").tag(SpaceHUDSettings.Duration.long)
+                }
+                .pickerStyle(.segmented)
+                .disabled(!model.hud.isEnabled)
+                Picker("위치", selection: $model.hud.position) {
+                    Text("가운데").tag(SpaceHUDSettings.Position.center)
+                    Text("위쪽").tag(SpaceHUDSettings.Position.top)
+                }
+                .pickerStyle(.segmented)
+                .disabled(!model.hud.isEnabled)
             }
             Section {
                 Picker("스위처를 열 때 처음 선택", selection: $model.initialSelection) {

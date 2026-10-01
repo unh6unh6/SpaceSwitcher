@@ -97,6 +97,7 @@ macOS has no public Spaces API, so the app combines three mechanisms.
 - The initial selection comes from `InitialSelection` in `Store/MRUTracker.swift`: the current desktop by default, or the MRU previous one.
 
 **Other components:**
+- `HUD/` shows the desktop name briefly on every Space change (#13): `SpaceHUDContent`/`SpaceHUDSettings` are pure (UserDefaults `hudEnabled`/`hudDuration`/`hudPosition`); `SpaceHUDPanel` is a click-through panel on all Spaces.
 - `Store/NameStore` persists `names.json`: 30-character cap, an empty value deletes, unknown ids are kept.
 - `MenuBar/StatusItemController` shows the name and the menu, with a warning prefix when Accessibility is missing.
 - `Onboarding/PermissionMonitor` polls AX trust and missing desktop shortcuts every 1 s on a background queue.
