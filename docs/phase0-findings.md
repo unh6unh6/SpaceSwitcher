@@ -113,3 +113,26 @@ TextEdit에서 Option+E 연타, Option+Shift+E 연타 후 Option 뗌:
   **자식 요소 0개**. Ctrl+↑로 열기, `Mission Control.app` 실행, 화면 위쪽 호버로 데스크탑 줄 펼치기 모두 동일.
   Dock의 `AXWindows`도 0개. → 예전 macOS의 AppleScript 방식("Spaces Bar" 그룹의 버튼) 사용 불가.
 - 스크립트: `spike/missioncontrol.swift`
+
+## 후속 발견 (#16 스파이크, 2026-10-03): 범용 "새 창" 규칙
+
+스크립트: `spike/newwindow.swift <bundle-id> [--close]`, `--classify`(누르지 않고 분류만). macOS 27.0.1.
+
+**결과: 규칙 1~3 모두 현재 데스크탑에 새 창을 만들고 화면이 다른 데스크탑으로 넘어가지 않음.**
+| 앱 · 상태 | 규칙 | 결과 |
+|---|---|---|
+| Warp · 켜짐(창 있음) | 3 메뉴 "New Window" | 현재 데스크탑, 0.2초 |
+| Chrome · 켜짐(창은 **다른 데스크탑에만**) | 3 메뉴 "새 창" | 현재 데스크탑, 이동 없음, 0.2초 |
+| MarkEdit · 켜짐 | 3 파일 메뉴 ⌘N "New" | 현재 데스크탑, 0.2초 |
+| IntelliJ · 꺼짐 | 1 실행 | 현재 데스크탑, 0.4초 |
+| TextEdit · 켜짐(창 없음) | 2 다시 열기 | 현재 데스크탑, 0.4초 |
+
+**규칙을 다듬은 근거**
+- ⌘N 의미가 앱마다 다름: Claude "새 채팅", IntelliJ "Generate…"(Code 메뉴), Notion 새 창은 ⌘⇧N → 단축키 직접 전송 불가, 메뉴 항목을 AX로 누름
+- 이름만으로 찾으면 오탐: Finder "새로운 윈도우에서 열기 및 닫기", TextEdit "새로운 윈도우로 탭 이동" → **"새/New… + 창/윈도우/Window" 이름 AND 단축키 키가 N**일 때만 확실
+- 한국어 TextEdit 새 문서는 "신규" → 단어 목록 다국어화, 그래도 언어 의존 → 파일 메뉴(2번째 메뉴)의 ⌘N을 **후보**로
+- 앱 정보의 "문서 편집 앱"(CFBundleDocumentTypes Editor)은 구분에 못 씀: Claude도 Editor
+- 메뉴 항목 AXIdentifier는 `_NS:345` 같은 무작위 값 → 사용 불가
+- "창 있음" 판단은 어떤 Space에 속한 창만: TextEdit은 Space에 속하지 않는 숨은 창(694×64 등)이 있음
+
+**분류 (`--classify`)**: 확실 = Finder, Notion, Warp, Chrome / 후보(확인 필요) = Claude "새 채팅"(오답), MarkEdit "New"(정답) / 단일 창 = 카카오톡, Discord, IntelliJ(켜져 있을 때)
