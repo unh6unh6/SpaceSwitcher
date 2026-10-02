@@ -23,6 +23,7 @@ final class MemoOverlayController: NSObject, NSWindowDelegate {
         model.onCancel = { [weak self] in self?.endEdit() }
         model.onToggleCollapse = { [weak self] in self?.toggleCollapse() }
         model.onHover = { [weak self] inside in self?.applyOpacity(hovering: inside) }
+        model.onToggleTask = { [weak self] line in self?.toggleTask(line) }
 
         let workspace = NSWorkspace.shared.notificationCenter
         workspace.addObserver(forName: NSWorkspace.activeSpaceDidChangeNotification, object: nil, queue: .main) { [weak self] _ in
@@ -76,6 +77,12 @@ final class MemoOverlayController: NSObject, NSWindowDelegate {
             memos.setMemo(text, for: space.id, desktopName: names.displayName(for: space))
         }
         endEdit()
+    }
+
+    /// Checkbox click (#19): flip that line in the file without entering edit mode.
+    private func toggleTask(_ line: Int) {
+        guard let space = currentSpace, let memo = memos.memo(for: space.id) else { return }
+        memos.setMemo(MarkdownBlocks.toggleTask(in: memo, line: line), for: space.id, desktopName: names.displayName(for: space))
     }
 
     private func endEdit() {
@@ -148,6 +155,7 @@ final class MemoOverlayModel: ObservableObject {
     var onCancel: () -> Void = {}
     var onToggleCollapse: () -> Void = {}
     var onHover: (Bool) -> Void = { _ in }
+    var onToggleTask: (Int) -> Void = { _ in }
 }
 
 /// Titled-but-chromeless panel: free to drag (by its background) and resize, never activates the app
@@ -243,8 +251,7 @@ struct MemoOverlayView: View {
         ScrollView {
             Group {
                 if let memo = model.memo {
-                    Text(memo)
-                        .font(.callout)
+                    MarkdownView(text: memo, onToggleTask: model.onToggleTask)
                         .textSelection(.enabled)
                 } else {
                     Text(model.canEdit ? "메모 없음 · 클릭해 추가" : "전체화면 앱에는 메모를 둘 수 없어요")

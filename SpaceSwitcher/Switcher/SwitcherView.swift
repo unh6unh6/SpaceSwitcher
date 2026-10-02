@@ -25,17 +25,17 @@ final class SwitcherViewModel: ObservableObject {
     @Published var showsMemoPreview = false
     @Published var editingMemoRow: Int?
     @Published var memoDraft = ""
-    /// First visible line of the preview; Shift+↑↓ moves it.
+    /// First visible block of the preview; Shift+↑↓ moves it.
     @Published var memoScrollLine = 0
 
     var selectedRow: Row? { rows.indices.contains(selection) ? rows[selection] : nil }
 
-    /// Lines per Shift+↑↓ press.
+    /// Blocks (≈ lines) per Shift+↑↓ press.
     static let scrollStep = 4
 
     func scrollMemo(by steps: Int) {
-        let lineCount = selectedRow?.memo?.components(separatedBy: "\n").count ?? 0
-        memoScrollLine = min(max(0, memoScrollLine + steps * Self.scrollStep), max(0, lineCount - 1))
+        let blockCount = selectedRow?.memo.map { MarkdownBlocks.parse($0).count } ?? 0
+        memoScrollLine = min(max(0, memoScrollLine + steps * Self.scrollStep), max(0, blockCount - 1))
     }
 
     var onClick: (Int) -> Void = { _ in }
@@ -44,6 +44,7 @@ final class SwitcherViewModel: ObservableObject {
     var onCancelRename: () -> Void = {}
     var onCommitMemo: (String) -> Void = { _ in }
     var onCancelMemo: () -> Void = {}
+    var onToggleTask: (Int) -> Void = { _ in }
 }
 
 struct SwitcherView: View {
@@ -120,14 +121,7 @@ struct SwitcherView: View {
             } else if let memo = model.selectedRow?.memo {
                 ScrollViewReader { proxy in
                     ScrollView {
-                        VStack(alignment: .leading, spacing: 2) {
-                            ForEach(Array(memo.components(separatedBy: "\n").enumerated()), id: \.offset) { i, line in
-                                Text(line.isEmpty ? " " : line)
-                                    .font(.callout)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                    .id(i)
-                            }
-                        }
+                        MarkdownView(text: memo, onToggleTask: model.onToggleTask)   // block ids = scroll targets
                     }
                     .onChange(of: model.memoScrollLine) { _, line in
                         withAnimation(.easeOut(duration: 0.12)) { proxy.scrollTo(line, anchor: .top) }

@@ -54,6 +54,7 @@ final class SwitcherController {
         model.onCancelRename = { [weak self] in self?.sendFromMain(.endRename) }
         model.onCommitMemo = { [weak self] text in self?.commitMemo(text) }
         model.onCancelMemo = { [weak self] in self?.sendFromMain(.endDescribe) }
+        model.onToggleTask = { [weak self] line in self?.toggleTask(line) }
 
         recordCurrentSpace()
         let workspace = NSWorkspace.shared.notificationCenter
@@ -160,6 +161,15 @@ final class SwitcherController {
 
     private func takeKeyboard() {
         focus.take(for: panel)
+    }
+
+    /// Checkbox click in the preview (#19): flip that line of the selected desktop's memo file.
+    private func toggleTask(_ line: Int) {
+        guard spaces.indices.contains(model.selection) else { return }
+        let space = spaces[model.selection]
+        guard let memo = memos.memo(for: space.id) else { return }
+        memos.setMemo(MarkdownBlocks.toggleTask(in: memo, line: line), for: space.id, desktopName: names.displayName(for: space))
+        reloadRows()
     }
 
     private func commitMemo(_ text: String) {
