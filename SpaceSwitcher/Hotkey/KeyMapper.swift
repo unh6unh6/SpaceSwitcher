@@ -32,8 +32,8 @@ enum KeyMapper {
             return .consume(isAutorepeat ? nil : .trigger(shift: shiftDown))
         case KeyCode.escape: return .consume(.cancel)
         case KeyCode.returnKey, KeyCode.keypadEnter: return .consume(.confirm)
-        case KeyCode.upArrow: return .consume(.moveUp)
-        case KeyCode.downArrow: return .consume(.moveDown)
+        case KeyCode.upArrow: return .consume(shiftDown ? .scrollMemo(-1) : .moveUp)
+        case KeyCode.downArrow: return .consume(shiftDown ? .scrollMemo(1) : .moveDown)
         case KeyCode.r: return .consume(isAutorepeat ? nil : .beginRename)
         case KeyCode.d: return .consume(isAutorepeat ? nil : .beginDescribe)
         default:

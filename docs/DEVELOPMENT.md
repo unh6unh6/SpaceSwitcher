@@ -31,7 +31,7 @@ xcodebuild test -scheme SpaceSwitcher -destination 'platform=macOS' -derivedData
   | grep -E "error:|failed|TEST (SUCCEEDED|FAILED)|Executed [0-9]+ tests" | grep -v Connection | sort -u | tail
 xcodebuild -scheme SpaceSwitcher -configuration Debug -derivedDataPath build/DerivedData build
 pkill -x SpaceSwitcher; open build/DerivedData/Build/Products/Debug/SpaceSwitcher.app
-swift scripts/smoke.swift                           # 패널 열림/Sticky/Esc 자동 점검 (<100ms 목표)
+swift scripts/smoke.swift                           # 패널 열림/Sticky/Esc 자동 점검 (<100ms 목표, 메모 창·HUD는 제외하고 판정)
 ./scripts/install.sh                                # Release 빌드 → /Applications 교체 → 실행
 ```
 

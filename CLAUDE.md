@@ -87,14 +87,14 @@ macOS has no public Spaces API, so the app combines three mechanisms.
    - `Shortcut` handles validation, the UserDefaults key `switcherShortcut`, and a `didChange` notification.
 
 **Switcher** (`Switcher/`):
-- `SwitcherStateMachine` (pure; event in, action out) moves Idle → Holding → Sticky / Renaming / Describing per SPEC §3.1 (D edits the selected desktop's description, #17).
+- `SwitcherStateMachine` (pure; event in, action out) moves Idle → Holding → Sticky / Renaming / Describing per SPEC §3.1. Describing = D edits the selected desktop's memo in the preview (#20); Shift+↑↓ scrolls it (`scrollMemo`).
   - Releasing the modifier after 1 press enters Sticky (popup mode).
   - Releasing it after ≥ 2 presses switches (cycle mode).
 - `SwitcherController` wires the tap, machine, `SwitcherPanel`, and stores together.
   - The machine, MRU, and shortcut live on the tap thread (reach them via `tap.perform`); UI lives on main. Actions cross to main with a snapshot of the desktop list.
   - It decides consumption synchronously in the tap callback and renders asynchronously.
   - Keys stay on the tap even in Sticky. Only inline rename activates the app.
-- `SwitcherPanel` is a non-activating `NSPanel` at `.popUpMenu` level with `[.canJoinAllSpaces, .fullScreenAuxiliary, .transient]`.
+- `SwitcherPanel` is a non-activating `NSPanel` at `.popUpMenu` level with `[.canJoinAllSpaces, .fullScreenAuxiliary, .transient]`. `SwitcherView` puts the memo preview (#20) to the right of the list, as tall as the list (min 240) so the panel never resizes while moving; `recenter()` after the preview appears for an edit.
 - The initial selection comes from `InitialSelection` in `Store/MRUTracker.swift`: the current desktop by default, or the MRU previous one.
 
 **Other components:**

@@ -52,8 +52,8 @@ final class SwitcherController {
         }
         model.onCommitRename = { [weak self] text in self?.commitRename(text) }
         model.onCancelRename = { [weak self] in self?.sendFromMain(.endRename) }
-        model.onCommitDescription = { [weak self] text in self?.commitDescription(text) }
-        model.onCancelDescription = { [weak self] in self?.sendFromMain(.endDescribe) }
+        model.onCommitMemo = { [weak self] text in self?.commitMemo(text) }
+        model.onCancelMemo = { [weak self] in self?.sendFromMain(.endDescribe) }
 
         recordCurrentSpace()
         let workspace = NSWorkspace.shared.notificationCenter
@@ -129,11 +129,11 @@ final class SwitcherController {
             reloadRows()
             model.selection = selection
             model.renamingRow = nil
-            model.describingRow = nil
+            model.editingMemoRow = nil
             panel.present()
             startClickMonitor()
         case .select(let row):
-            if model.renamingRow != nil || model.describingRow != nil { finishEditUI() }
+            if model.renamingRow != nil || model.editingMemoRow != nil { finishEditUI() }
             model.selection = row
         case .hide:
             close()
@@ -149,9 +149,12 @@ final class SwitcherController {
         case .describe(let row):
             guard spaces.indices.contains(row) else { return }
             model.selection = row
-            model.descriptionDraft = memos.memo(for: spaces[row].id) ?? ""
-            model.describingRow = row
+            model.memoDraft = memos.memo(for: spaces[row].id) ?? ""
+            model.editingMemoRow = row
             takeKeyboard()
+            panel.recenter()
+        case .scrollMemo(let step):
+            model.scrollMemo(by: step)
         }
     }
 
@@ -159,8 +162,8 @@ final class SwitcherController {
         focus.take(for: panel)
     }
 
-    private func commitDescription(_ text: String) {
-        guard let row = model.describingRow, spaces.indices.contains(row) else { return }
+    private func commitMemo(_ text: String) {
+        guard let row = model.editingMemoRow, spaces.indices.contains(row) else { return }
         memos.setMemo(text, for: spaces[row].id, desktopName: names.displayName(for: spaces[row]))
         reloadRows()
         sendFromMain(.endDescribe)
@@ -176,14 +179,15 @@ final class SwitcherController {
     /// Save and cancel of both inline editors land here; the panel stays open in Sticky (#7, #17).
     private func finishEditUI() {
         model.renamingRow = nil
-        model.describingRow = nil
+        model.editingMemoRow = nil
         returnFocus()
+        panel.recenter()
     }
 
     /// `then` runs once the panel is really off screen, so a following Space switch doesn't animate it (#8).
     private func close(then: @escaping () -> Void = {}) {
         model.renamingRow = nil
-        model.describingRow = nil
+        model.editingMemoRow = nil
         stopClickMonitor()
         returnFocus()
         panel.hide(then: then)
@@ -201,7 +205,7 @@ final class SwitcherController {
         model.rows = spaces.map { space in
             var row = SwitcherViewModel.Row(id: space.id, number: space.index, title: names.displayName(for: space),
                                             isNamed: names.name(for: space.id) != nil, isCurrent: space.isCurrent)
-            row.description = memos.memo(for: space.id)
+            row.memo = memos.memo(for: space.id)
             if let appsBySpace {
                 let shown = SpaceApps.visible(appsBySpace[space.managedID] ?? [], limit: Self.iconLimit)
                 row.apps = shown.apps
@@ -209,7 +213,7 @@ final class SwitcherController {
             }
             return row
         }
-        model.showsDescriptionArea = memos.hasAnyMemo(among: Set(spaces.map(\.id)))
+        model.showsMemoPreview = MemoSettings.load().previewEnabled && memos.hasAnyMemo(among: Set(spaces.map(\.id)))
     }
 
     private func recordCurrentSpace() {

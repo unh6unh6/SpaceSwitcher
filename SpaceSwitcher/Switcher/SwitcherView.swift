@@ -11,98 +11,137 @@ final class SwitcherViewModel: ObservableObject {
         /// Apps with windows on this desktop (#14); nil when the setting is off.
         var apps: [SpaceApps.App]? = nil
         var overflow = 0
-        /// Multi-line note for this desktop (#17).
-        var description: String? = nil
+        /// This desktop's memo file (#18).
+        var memo: String? = nil
     }
 
     @Published var rows: [Row] = []
-    @Published var selection = 0
+    @Published var selection = 0 {
+        didSet { if selection != oldValue { memoScrollLine = 0 } }
+    }
     @Published var renamingRow: Int?
     @Published var draft = ""
-    /// The description area appears once any desktop has a description (#17).
-    @Published var showsDescriptionArea = false
-    @Published var describingRow: Int?
-    @Published var descriptionDraft = ""
+    /// Memo preview beside the list (#20): on in Settings and at least one desktop has a memo.
+    @Published var showsMemoPreview = false
+    @Published var editingMemoRow: Int?
+    @Published var memoDraft = ""
+    /// First visible line of the preview; Shift+↑↓ moves it.
+    @Published var memoScrollLine = 0
 
-    var selectedDescription: String? {
-        rows.indices.contains(selection) ? rows[selection].description : nil
+    var selectedRow: Row? { rows.indices.contains(selection) ? rows[selection] : nil }
+
+    /// Lines per Shift+↑↓ press.
+    static let scrollStep = 4
+
+    func scrollMemo(by steps: Int) {
+        let lineCount = selectedRow?.memo?.components(separatedBy: "\n").count ?? 0
+        memoScrollLine = min(max(0, memoScrollLine + steps * Self.scrollStep), max(0, lineCount - 1))
     }
 
     var onClick: (Int) -> Void = { _ in }
     var onDoubleClick: (Int) -> Void = { _ in }
     var onCommitRename: (String) -> Void = { _ in }
     var onCancelRename: () -> Void = {}
-    var onCommitDescription: (String) -> Void = { _ in }
-    var onCancelDescription: () -> Void = {}
+    var onCommitMemo: (String) -> Void = { _ in }
+    var onCancelMemo: () -> Void = {}
 }
 
 struct SwitcherView: View {
     /// Tall enough for 16 rows without scrolling on a 13" screen (SPEC §3.2).
     static let rowHeight: CGFloat = 30
+    static let previewWidth: CGFloat = 380
+    /// The preview never gets shorter than this, even next to a 2-desktop list.
+    static let previewMinHeight: CGFloat = 240
 
     @ObservedObject var model: SwitcherViewModel
     @FocusState private var fieldFocused: Bool
     @FocusState private var editorFocused: Bool
-    /// Fixed height (~4 lines) so moving the selection never resizes the panel (#17).
-    static let descriptionHeight: CGFloat = 76
+
+    private var showsPreview: Bool { model.showsMemoPreview || model.editingMemoRow != nil }
 
     var body: some View {
+        HStack(alignment: .top, spacing: 0) {
+            list
+                .frame(width: model.rows.contains { $0.apps != nil } ? 440 : 340)
+            if showsPreview {
+                Divider()
+                memoPreview
+                    .frame(width: Self.previewWidth, height: previewHeight, alignment: .top)
+            }
+        }
+        .padding(10)
+    }
+
+    /// As tall as the list (min 240) and never taller: a long memo scrolls instead of stretching
+    /// the panel, and moving the selection never resizes it.
+    private var previewHeight: CGFloat {
+        let listHeight = CGFloat(model.rows.count) * (Self.rowHeight + 2) + 28
+        return max(listHeight, Self.previewMinHeight)
+    }
+
+    private var list: some View {
         VStack(alignment: .leading, spacing: 2) {
             ForEach(Array(model.rows.enumerated()), id: \.element.id) { i, row in
                 rowView(row, index: i)
             }
-            if model.showsDescriptionArea || model.describingRow != nil {
-                descriptionArea
-            }
-            Text(model.describingRow != nil
+            if showsPreview { Spacer(minLength: 0) }
+            Text(model.editingMemoRow != nil
                  ? "⌘Enter 저장 · Enter 줄바꿈 · Esc 취소"
-                 : "↑↓ 이동 · Enter 전환 · 1–9 바로 이동 · R 이름 · D 설명 · Esc 닫기")
+                 : "↑↓ 이동 · Enter 전환 · 1–9 바로 · R 이름 · D 메모" + (showsPreview ? " · ⇧↑↓ 스크롤" : "") + " · Esc")
                 .font(.caption2)
                 .foregroundStyle(.secondary)
                 .padding(.top, 6)
                 .padding(.horizontal, 10)
         }
-        .padding(10)
-        .frame(width: model.rows.contains { $0.apps != nil } ? 440 : 340)
     }
 
-    /// The selected desktop's description, or its editor while describing.
-    private var descriptionArea: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Divider().padding(.vertical, 6)
-            Group {
-                if model.describingRow != nil {
-                    TextEditor(text: $model.descriptionDraft)
-                        .font(.callout)
-                        .scrollContentBackground(.hidden)
-                        .background(RoundedRectangle(cornerRadius: 6).fill(Color.primary.opacity(0.06)))
-                        .focused($editorFocused)
-                        .onAppear { editorFocused = true }
-                        .onKeyPress(.return, phases: .down) { press in
-                            guard press.modifiers.contains(.command) else { return .ignored }  // plain Enter = newline
-                            model.onCommitDescription(model.descriptionDraft)
-                            return .handled
+    /// The selected desktop's memo, scrollable; or its editor while editing (#20).
+    private var memoPreview: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(model.selectedRow?.title ?? "")
+                .font(.headline)
+                .lineLimit(1)
+            if model.editingMemoRow != nil {
+                TextEditor(text: $model.memoDraft)
+                    .font(.system(.callout, design: .monospaced))
+                    .scrollContentBackground(.hidden)
+                    .background(RoundedRectangle(cornerRadius: 6).fill(Color.primary.opacity(0.06)))
+                    .focused($editorFocused)
+                    .onAppear { editorFocused = true }
+                    .onKeyPress(.return, phases: .down) { press in
+                        guard press.modifiers.contains(.command) else { return .ignored }  // plain Enter = newline
+                        model.onCommitMemo(model.memoDraft)
+                        return .handled
+                    }
+                    .onKeyPress(.escape) {
+                        model.onCancelMemo()
+                        return .handled
+                    }
+            } else if let memo = model.selectedRow?.memo {
+                ScrollViewReader { proxy in
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 2) {
+                            ForEach(Array(memo.components(separatedBy: "\n").enumerated()), id: \.offset) { i, line in
+                                Text(line.isEmpty ? " " : line)
+                                    .font(.callout)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .id(i)
+                            }
                         }
-                        .onKeyPress(.escape) {
-                            model.onCancelDescription()
-                            return .handled
-                        }
-                } else if let text = model.selectedDescription {
-                    Text(text)
-                        .font(.callout)
-                        .lineLimit(4)
-                        .truncationMode(.tail)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                } else {
-                    Text("설명 없음 · D로 추가")
-                        .font(.callout)
-                        .foregroundStyle(.tertiary)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                    }
+                    .onChange(of: model.memoScrollLine) { _, line in
+                        withAnimation(.easeOut(duration: 0.12)) { proxy.scrollTo(line, anchor: .top) }
+                    }
                 }
+            } else {
+                Text("메모 없음 · D로 작성")
+                    .font(.callout)
+                    .foregroundStyle(.tertiary)
+                Spacer()
             }
-            .frame(height: Self.descriptionHeight)
-            .padding(.horizontal, 10)
         }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 6)
     }
 
     /// Up to 5 app icons, "+N" for the rest, or "(비어 있음)" for a desktop without windows.

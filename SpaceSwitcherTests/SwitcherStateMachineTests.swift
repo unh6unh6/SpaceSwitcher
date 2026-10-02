@@ -32,7 +32,7 @@ final class SwitcherStateMachineTests: XCTestCase {
     func testIdleIgnoresEverythingElse() {
         var m = machine()
         for event: SwitcherStateMachine.Event in [.modifierReleased, .moveUp, .moveDown, .digit(1),
-                                                 .confirm, .cancel, .select(0), .highlight(0), .beginRename, .endRename, .beginDescribe, .endDescribe, .clickOutside, .dismissed] {
+                                                 .confirm, .cancel, .select(0), .highlight(0), .beginRename, .endRename, .beginDescribe, .endDescribe, .scrollMemo(1), .clickOutside, .dismissed] {
             XCTAssertNil(m.handle(event), "\(event)")
             XCTAssertEqual(m.state, .idle)
         }
@@ -219,6 +219,22 @@ final class SwitcherStateMachineTests: XCTestCase {
         XCTAssertNil(m.handle(.beginRename))
         XCTAssertEqual(m.handle(.endDescribe), .select(2))
         XCTAssertEqual(m.state, .sticky(selection: 2))
+    }
+
+    // #20: Shift+↑↓ scrolls the memo preview without moving the selection.
+    func testScrollMemoInStickyAndHolding() {
+        var m = sticky(count: 3, initial: 1)
+        XCTAssertEqual(m.handle(.scrollMemo(1)), .scrollMemo(1))
+        XCTAssertEqual(m.state, .sticky(selection: 1))
+        m = holding(count: 3, initial: 1)
+        XCTAssertEqual(m.handle(.scrollMemo(-1)), .scrollMemo(-1))
+        XCTAssertEqual(m.state, .holding(selection: 1, pressCount: 1))
+    }
+
+    func testScrollMemoIgnoredWhileEditing() {
+        var m = sticky()
+        _ = m.handle(.beginDescribe)
+        XCTAssertNil(m.handle(.scrollMemo(1)))
     }
 
     func testDescribeNotAvailableWhileHolding() {

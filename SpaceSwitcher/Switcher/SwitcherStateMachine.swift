@@ -30,6 +30,8 @@ struct SwitcherStateMachine {
         case highlight(Int)
         case beginRename, endRename
         case beginDescribe, endDescribe
+        /// Shift+↑↓: scroll the memo preview by a step (#20).
+        case scrollMemo(Int)
         case clickOutside
         /// The panel vanished without going through the machine (e.g. the app was hidden).
         case dismissed
@@ -43,6 +45,7 @@ struct SwitcherStateMachine {
         case switchTo(Int)
         case rename(Int)
         case describe(Int)
+        case scrollMemo(Int)
     }
 
     private(set) var state: State = .idle
@@ -93,6 +96,8 @@ struct SwitcherStateMachine {
             case .highlight(let row) where (0..<count).contains(row):
                 state = .holding(selection: row, pressCount: pressCount)
                 return .select(row)
+            case .scrollMemo(let step):
+                return .scrollMemo(step)
             case .cancel, .clickOutside:
                 return close(.hide)
             case .select(let row) where (0..<count).contains(row):
@@ -110,6 +115,8 @@ struct SwitcherStateMachine {
             case .highlight(let row) where (0..<count).contains(row):
                 state = .sticky(selection: row)
                 return .select(row)
+            case .scrollMemo(let step):
+                return .scrollMemo(step)
             case .digit(let n) where (1...count).contains(n):
                 return close(.switchTo(n - 1))
             case .confirm:

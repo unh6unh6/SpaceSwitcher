@@ -69,6 +69,14 @@ final class KeyMapperTests: XCTestCase {
         XCTAssertEqual(map(KeyCode.digits[2], opt, capturing: true), .consume(.digit(3)))
     }
 
+    func testShiftArrowsScrollMemo() {
+        let shift = CGEventFlags.maskShift.rawValue
+        XCTAssertEqual(map(KeyCode.downArrow, shift, capturing: true), .consume(.scrollMemo(1)))
+        XCTAssertEqual(map(KeyCode.upArrow, shift, capturing: true), .consume(.scrollMemo(-1)))
+        XCTAssertEqual(map(KeyCode.downArrow, shift, repeat: true, capturing: true), .consume(.scrollMemo(1)))
+        XCTAssertEqual(map(KeyCode.downArrow, opt | shift, capturing: true), .consume(.scrollMemo(1)))  // still holding ⌥
+    }
+
     func testArrowAutorepeatStillMoves() {
         XCTAssertEqual(map(KeyCode.downArrow, 0, repeat: true, capturing: true), .consume(.moveDown))
     }

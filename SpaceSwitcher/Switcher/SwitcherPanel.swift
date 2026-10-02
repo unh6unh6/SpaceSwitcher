@@ -39,6 +39,12 @@ final class SwitcherPanel: NSPanel {
     /// Needed so the inline rename field can receive typing.
     override var canBecomeKey: Bool { true }
 
+    /// Re-centers after the content changed size (memo preview appearing for an edit, etc.).
+    func recenter() {
+        guard isVisible else { return }
+        DispatchQueue.main.async { [weak self] in self?.present() }  // after SwiftUI's layout pass
+    }
+
     func present() {
         hosting.layoutSubtreeIfNeeded()
         let size = hosting.fittingSize

@@ -27,12 +27,15 @@ func releaseModifiers() {
     event.post(tap: .cghidEventTap)
 }
 
-/// The panel is SpaceSwitcher's only window above normal level (it uses .popUpMenu).
+/// The switcher panel sits at .popUpMenu (layer 101). The memo overlay (#18, layer 25) and the
+/// desktop-name HUD (#13, layer 101 but only ~84 px tall, shown after Space changes) are excluded.
 func panelVisible() -> Bool {
     let windows = CGWindowListCopyWindowInfo([.optionOnScreenOnly], kCGNullWindowID) as? [[String: Any]] ?? []
     return windows.contains {
-        ($0[kCGWindowOwnerName as String] as? String) == "SpaceSwitcher"
-            && ($0[kCGWindowLayer as String] as? Int ?? 0) > 20
+        guard ($0[kCGWindowOwnerName as String] as? String) == "SpaceSwitcher",
+              ($0[kCGWindowLayer as String] as? Int) == 101,
+              let bounds = $0[kCGWindowBounds as String] as? [String: Double] else { return false }
+        return (bounds["Height"] ?? 0) > 90
     }
 }
 
