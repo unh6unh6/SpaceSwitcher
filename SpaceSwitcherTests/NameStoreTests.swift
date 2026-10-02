@@ -91,65 +91,24 @@ final class NameStoreTests: XCTestCase {
         wait(for: [posted], timeout: 1)
     }
 
-    // MARK: descriptions (#17)
+    // MARK: legacy descriptions (#17 → memo files, #18)
 
-    func testDescriptionPersistsAndKeepsLineBreaks() {
-        NameStore(fileURL: fileURL).setDescription("결제 모듈 분리\nPR #142 리뷰 대기", for: "A")
-        XCTAssertEqual(NameStore(fileURL: fileURL).description(for: "A"), "결제 모듈 분리\nPR #142 리뷰 대기")
-    }
-
-    func testDescriptionTrimsOuterWhitespaceOnly() {
-        let store = NameStore(fileURL: fileURL)
-        store.setDescription("\n  첫 줄\n  들여쓴 둘째 줄  \n\n", for: "A")
-        XCTAssertEqual(store.description(for: "A"), "첫 줄\n  들여쓴 둘째 줄")
-    }
-
-    func testEmptyDescriptionRemovesIt() {
-        let store = NameStore(fileURL: fileURL)
-        store.setDescription("메모", for: "A")
-        store.setDescription("  \n ", for: "A")
-        XCTAssertNil(store.description(for: "A"))
-    }
-
-    func testDescriptionIsCappedByCharacters() {
-        let store = NameStore(fileURL: fileURL)
-        store.setDescription(String(repeating: "가", count: 600), for: "A")
-        XCTAssertEqual(store.description(for: "A")?.count, NameStore.maxDescriptionLength)
-    }
-
-    func testHasAnyDescription() {
-        let store = NameStore(fileURL: fileURL)
-        XCTAssertFalse(store.hasAnyDescription(among: ["A", "B"]))
-        store.setDescription("메모", for: "GONE")
-        XCTAssertFalse(store.hasAnyDescription(among: ["A", "B"]))   // only desktops that exist count
-        store.setDescription("메모", for: "B")
-        XCTAssertTrue(store.hasAnyDescription(among: ["A", "B"]))
-    }
-
-    // Files written by v0.1/v0.2 have no "descriptions" key.
     func testReadsVersionOneFile() throws {
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         try Data(#"{"version":1,"names":{"A":"업무"}}"#.utf8).write(to: fileURL)
         let store = NameStore(fileURL: fileURL)
         XCTAssertEqual(store.name(for: "A"), "업무")
-        XCTAssertNil(store.description(for: "A"))
+        XCTAssertTrue(store.legacyDescriptions.isEmpty)
         XCTAssertFalse(FileManager.default.fileExists(atPath: fileURL.appendingPathExtension("corrupt").path))
     }
 
-    func testRemoveUnusedAlsoRemovesDescriptions() {
+    func testLegacyDescriptionsAreReadThenCleared() throws {
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        try Data(#"{"version":2,"names":{"A":"업무"},"descriptions":{"A":"옛 설명"}}"#.utf8).write(to: fileURL)
         let store = NameStore(fileURL: fileURL)
-        store.setDescription("옛 메모", for: "GONE")
-        store.setName("업무", for: "A")
-        XCTAssertEqual(store.unusedCount(keeping: ["A"]), 1)
-        store.removeUnused(keeping: ["A"])
-        XCTAssertNil(store.description(for: "GONE"))
-        XCTAssertEqual(store.name(for: "A"), "업무")
-    }
-
-    func testDescriptionChangePostsNotification() {
-        let store = NameStore(fileURL: fileURL)
-        let posted = expectation(forNotification: NameStore.didChange, object: store)
-        store.setDescription("메모", for: "A")
-        wait(for: [posted], timeout: 1)
+        XCTAssertEqual(store.legacyDescriptions, ["A": "옛 설명"])
+        store.clearLegacyDescriptions()
+        XCTAssertTrue(NameStore(fileURL: fileURL).legacyDescriptions.isEmpty)
+        XCTAssertEqual(NameStore(fileURL: fileURL).name(for: "A"), "업무")
     }
 }

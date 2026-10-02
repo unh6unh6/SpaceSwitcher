@@ -21,18 +21,18 @@ final class SwitcherController {
 
     // MARK: main thread
     private let names: NameStore
+    private let memos: MemoStore
     private let tap = EventTap()
     private let model = SwitcherViewModel()
     private lazy var panel = SwitcherPanel(model: model)
     /// Desktops shown in the panel; rows index into this.
     private var spaces: [Space] = []
     private var clickMonitor: Any?
-    private var activatedForRename = false
-    /// The app that had focus before inline rename activated us; it gets focus back afterwards.
-    private var focusBeforeRename: NSRunningApplication?
+    private let focus = FocusReturner()
 
-    init(names: NameStore) {
+    init(names: NameStore, memos: MemoStore) {
         self.names = names
+        self.memos = memos
         machine = SwitcherStateMachine { [unowned self] in
             tapSpaces = SpaceProvider.spaces()
             return (count: tapSpaces.count, initial: mru.initialSelection(InitialSelection.stored, in: tapSpaces))
@@ -149,26 +149,19 @@ final class SwitcherController {
         case .describe(let row):
             guard spaces.indices.contains(row) else { return }
             model.selection = row
-            model.descriptionDraft = names.description(for: spaces[row].id) ?? ""
+            model.descriptionDraft = memos.memo(for: spaces[row].id) ?? ""
             model.describingRow = row
             takeKeyboard()
         }
     }
 
-    /// Text fields need the panel to be key, which means activating the app; remember who had focus (#7).
     private func takeKeyboard() {
-        if !activatedForRename {
-            let front = NSWorkspace.shared.frontmostApplication
-            focusBeforeRename = front?.processIdentifier == ProcessInfo.processInfo.processIdentifier ? nil : front
-        }
-        activatedForRename = true
-        NSApp.activate(ignoringOtherApps: true)
-        panel.makeKey()
+        focus.take(for: panel)
     }
 
     private func commitDescription(_ text: String) {
         guard let row = model.describingRow, spaces.indices.contains(row) else { return }
-        names.setDescription(text, for: spaces[row].id)
+        memos.setMemo(text, for: spaces[row].id, desktopName: names.displayName(for: spaces[row]))
         reloadRows()
         sendFromMain(.endDescribe)
     }
@@ -196,18 +189,8 @@ final class SwitcherController {
         panel.hide(then: then)
     }
 
-    /// Give the keyboard back to the app the user was in after an inline rename.
-    /// Not `NSApp.hide`: that hides every window of ours, the panel included, while the state machine
-    /// still believes it is open (#7). Activating the other app keeps the non-activating panel on screen.
     private func returnFocus() {
-        guard activatedForRename else { return }
-        activatedForRename = false
-        if let app = focusBeforeRename, !app.isTerminated {
-            app.activate()
-        } else {
-            NSApp.deactivate()
-        }
-        focusBeforeRename = nil
+        focus.giveBack()
     }
 
     /// Icons per desktop (#14); 5 icons per row keeps the 16-row panel compact.
@@ -218,7 +201,7 @@ final class SwitcherController {
         model.rows = spaces.map { space in
             var row = SwitcherViewModel.Row(id: space.id, number: space.index, title: names.displayName(for: space),
                                             isNamed: names.name(for: space.id) != nil, isCurrent: space.isCurrent)
-            row.description = names.description(for: space.id)
+            row.description = memos.memo(for: space.id)
             if let appsBySpace {
                 let shown = SpaceApps.visible(appsBySpace[space.managedID] ?? [], limit: Self.iconLimit)
                 row.apps = shown.apps
@@ -226,7 +209,7 @@ final class SwitcherController {
             }
             return row
         }
-        model.showsDescriptionArea = names.hasAnyDescription(among: Set(spaces.map(\.id)))
+        model.showsDescriptionArea = memos.hasAnyMemo(among: Set(spaces.map(\.id)))
     }
 
     private func recordCurrentSpace() {

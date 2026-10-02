@@ -25,11 +25,13 @@ final class SettingsModel: ObservableObject {
     }
 
     let names: NameStore
+    let memos: MemoStore
     let permissions: PermissionMonitor
     let setSwitcherSuspended: (Bool) -> Void
 
-    init(names: NameStore, permissions: PermissionMonitor, setSwitcherSuspended: @escaping (Bool) -> Void) {
+    init(names: NameStore, memos: MemoStore, permissions: PermissionMonitor, setSwitcherSuspended: @escaping (Bool) -> Void) {
         self.names = names
+        self.memos = memos
         self.permissions = permissions
         self.setSwitcherSuspended = setSwitcherSuspended
         NotificationCenter.default.addObserver(forName: NameStore.didChange, object: names, queue: .main) { [weak self] _ in
@@ -171,7 +173,7 @@ private struct DesktopsTab: View {
                             Text("현재").font(.caption).foregroundStyle(.secondary)
                         }
                     }
-                    DescriptionField(space: space, names: model.names)
+                    MemoField(space: space, names: model.names, memos: model.memos)
                         .padding(.leading, 32)
                 }
                 .padding(.vertical, 2)
@@ -209,27 +211,30 @@ private struct NameField: View {
     }
 }
 
-/// Multi-line description (#17). Enter saves, ⌥Enter adds a line, leaving the field saves too.
-private struct DescriptionField: View {
+/// The desktop's memo (#18), saved as a Markdown file. Enter saves, ⌥Enter adds a line, leaving saves too.
+private struct MemoField: View {
     let space: Space
     let names: NameStore
+    let memos: MemoStore
     @State private var draft = ""
     @FocusState private var focused: Bool
 
     var body: some View {
-        TextField("설명 (여러 줄, 최대 \(NameStore.maxDescriptionLength)자)", text: $draft, axis: .vertical)
+        TextField("메모 (여러 줄, 마크다운 파일로 저장)", text: $draft, axis: .vertical)
             .lineLimit(1...4)
             .font(.callout)
             .textFieldStyle(.roundedBorder)
             .focused($focused)
-            .onAppear { draft = names.description(for: space.id) ?? "" }
+            .onAppear { draft = memos.memo(for: space.id) ?? "" }
             .onSubmit(save)
             .onChange(of: focused) { _, isFocused in if !isFocused { save() } }
     }
 
     private func save() {
-        if draft != (names.description(for: space.id) ?? "") { names.setDescription(draft, for: space.id) }
-        draft = names.description(for: space.id) ?? ""
+        if draft != (memos.memo(for: space.id) ?? "") {
+            memos.setMemo(draft, for: space.id, desktopName: names.displayName(for: space))
+        }
+        draft = memos.memo(for: space.id) ?? ""
     }
 }
 
