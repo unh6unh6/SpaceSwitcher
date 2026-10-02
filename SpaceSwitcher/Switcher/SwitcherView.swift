@@ -66,7 +66,7 @@ struct SwitcherView: View {
             if showsPreview {
                 Divider()
                 memoPreview
-                    .frame(width: Self.previewWidth, height: previewHeight, alignment: .top)
+                    .frame(width: Self.previewWidth, height: previewHeight, alignment: .topLeading)
             }
         }
         .padding(10)
@@ -142,6 +142,7 @@ struct SwitcherView: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 6)
+        .frame(maxWidth: .infinity, alignment: .leading)  // short content (e.g. "메모 없음") hugs the left edge
     }
 
     /// Up to 5 app icons, "+N" for the rest, or "(비어 있음)" for a desktop without windows.
