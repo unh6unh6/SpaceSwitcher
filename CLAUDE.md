@@ -30,6 +30,7 @@ SpaceSwitcher is a macOS menu-bar agent app (`LSUIElement`, no Dock icon). It le
   - If an issue doesn't exist yet, file one first: `gh issue create --label enhancement|bug`.
   - The body covers the goal, approach, risks, a checklist, and an estimate.
 - **Priority** is a label: `priority: high` (must be in the next release), `priority: medium` (next release if time allows), `priority: low` (someday). The user sets it; ask if an issue has none. Pick work in this order: the next milestone's issues first, then by priority. `gh issue list --label "priority: high"`.
+- **Experimental** features carry the `experimental` label (instead of a priority). In the app they stay behind **Settings → 실험적 기능** (default off) until promoted; promotion removes the toggle and is a normal issue.
 - A **milestone is a release** (e.g. `v0.2.0`).
   - Work through its issues on `main`.
   - Commit locally at sensible checkpoints without asking.
