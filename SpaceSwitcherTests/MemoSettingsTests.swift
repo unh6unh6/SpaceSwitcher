@@ -1,0 +1,78 @@
+import XCTest
+@testable import SpaceSwitcher
+
+final class MemoSettingsTests: XCTestCase {
+    private var defaults: UserDefaults!
+    private let suite = "SpaceSwitcherTests.MemoSettings"
+
+    override func setUp() {
+        defaults = UserDefaults(suiteName: suite)
+        defaults.removePersistentDomain(forName: suite)
+    }
+
+    func testDefaults() {
+        let s = MemoSettings.load(from: defaults)
+        XCTAssertFalse(s.overlayEnabled)          // opt-in: a window floating over everything
+        XCTAssertTrue(s.previewEnabled)           // Option+E preview (#20); hidden anyway while no memo exists
+        XCTAssertEqual(s.opacity, 0.85)
+        XCTAssertEqual(s.corner, .topRight)
+        XCTAssertNil(s.frame)
+        XCTAssertFalse(s.collapsed)
+        XCTAssertFalse(s.hideWhenEmpty)
+        XCTAssertNil(s.directoryPath)
+    }
+
+    func testRoundTrip() {
+        var s = MemoSettings()
+        s.overlayEnabled = true
+        s.previewEnabled = false
+        s.opacity = 0.5
+        s.corner = .bottomLeft
+        s.frame = CGRect(x: 10, y: 20, width: 300, height: 200)
+        s.collapsed = true
+        s.hideWhenEmpty = true
+        s.directoryPath = "/tmp/vault"
+        s.save(to: defaults)
+        XCTAssertEqual(MemoSettings.load(from: defaults), s)
+    }
+
+    func testOpacityIsClamped() {
+        var s = MemoSettings()
+        s.opacity = 0.05
+        s.save(to: defaults)
+        XCTAssertEqual(MemoSettings.load(from: defaults).opacity, MemoSettings.minOpacity)
+        s.opacity = 3
+        s.save(to: defaults)
+        XCTAssertEqual(MemoSettings.load(from: defaults).opacity, 1)
+    }
+
+    func testUnknownCornerFallsBack() {
+        defaults.set("middle", forKey: "memoCorner")
+        XCTAssertEqual(MemoSettings.load(from: defaults).corner, .topRight)
+    }
+
+    // MARK: placement
+
+    private let screen = CGRect(x: 0, y: 0, width: 1440, height: 900)
+    private let size = CGSize(width: 320, height: 220)
+
+    func testCornerPlacementKeepsAMargin() {
+        let m = MemoSettings.margin
+        XCTAssertEqual(MemoSettings.Corner.topRight.origin(for: size, in: screen),
+                       CGPoint(x: 1440 - 320 - m, y: 900 - 220 - m))
+        XCTAssertEqual(MemoSettings.Corner.bottomLeft.origin(for: size, in: screen), CGPoint(x: m, y: m))
+    }
+
+    // A saved frame from a bigger monitor must not leave the memo off screen.
+    func testSavedFrameIsPulledBackOnScreen() {
+        let off = CGRect(x: 2000, y: -500, width: 320, height: 220)
+        let fixed = MemoSettings.clamp(off, to: screen)
+        XCTAssertTrue(screen.contains(fixed))
+        XCTAssertEqual(fixed.size, off.size)
+    }
+
+    func testFrameLargerThanScreenShrinks() {
+        let huge = CGRect(x: 0, y: 0, width: 3000, height: 2000)
+        XCTAssertTrue(screen.contains(MemoSettings.clamp(huge, to: screen)))
+    }
+}
