@@ -73,6 +73,12 @@ final class KeyMapperTests: XCTestCase {
         XCTAssertEqual(map(KeyCode.downArrow, 0, repeat: true, capturing: true), .consume(.moveDown))
     }
 
+    func testDescribeKey() {
+        XCTAssertEqual(map(KeyCode.d, 0, capturing: true), .consume(.beginDescribe))
+        XCTAssertEqual(map(KeyCode.d, 0, repeat: true, capturing: true), .consume(nil))
+        XCTAssertEqual(map(KeyCode.d, 0), .pass)   // idle: typing "d" is untouched
+    }
+
     func testRenameKeyAutorepeatIgnored() {
         XCTAssertEqual(map(KeyCode.r, 0, repeat: true, capturing: true), .consume(nil))
     }

@@ -39,7 +39,7 @@ final class ShortcutTests: XCTestCase {
     // These keys drive the open panel (KeyMapper); as the shortcut key they would be shadowed.
     func testPanelKeysAreReserved() {
         for key in [KeyCode.escape, KeyCode.returnKey, KeyCode.keypadEnter, KeyCode.upArrow,
-                    KeyCode.downArrow, KeyCode.r] + KeyCode.digits {
+                    KeyCode.downArrow, KeyCode.r, KeyCode.d] + KeyCode.digits {
             XCTAssertEqual(Shortcut(keyCode: key, modifiers: opt).problem, .reservedKey, "key \(key)")
         }
     }

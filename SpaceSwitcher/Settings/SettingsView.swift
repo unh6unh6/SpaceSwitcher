@@ -160,19 +160,24 @@ private struct DesktopsTab: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             List(model.spaces) { space in
-                HStack {
-                    Text("\(space.index)")
-                        .font(.system(.body, design: .monospaced))
-                        .foregroundStyle(.secondary)
-                        .frame(width: 24, alignment: .trailing)
-                    NameField(space: space, names: model.names)
-                    if space.isCurrent {
-                        Text("현재").font(.caption).foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack {
+                        Text("\(space.index)")
+                            .font(.system(.body, design: .monospaced))
+                            .foregroundStyle(.secondary)
+                            .frame(width: 24, alignment: .trailing)
+                        NameField(space: space, names: model.names)
+                        if space.isCurrent {
+                            Text("현재").font(.caption).foregroundStyle(.secondary)
+                        }
                     }
+                    DescriptionField(space: space, names: model.names)
+                        .padding(.leading, 32)
                 }
+                .padding(.vertical, 2)
             }
             HStack {
-                Text("Enter로 저장 · 비우면 이름 삭제 · 최대 \(NameStore.maxLength)자")
+                Text("Enter로 저장 · 설명 줄바꿈은 ⌥Enter · 비우면 삭제")
                     .font(.caption).foregroundStyle(.secondary)
                 Spacer()
                 Button("사용하지 않는 이름 정리 (\(model.unusedNames)개)", action: model.removeUnusedNames)
@@ -201,6 +206,30 @@ private struct NameField: View {
     private func save() {
         if draft != (names.name(for: space.id) ?? "") { names.setName(draft, for: space.id) }
         draft = names.name(for: space.id) ?? ""
+    }
+}
+
+/// Multi-line description (#17). Enter saves, ⌥Enter adds a line, leaving the field saves too.
+private struct DescriptionField: View {
+    let space: Space
+    let names: NameStore
+    @State private var draft = ""
+    @FocusState private var focused: Bool
+
+    var body: some View {
+        TextField("설명 (여러 줄, 최대 \(NameStore.maxDescriptionLength)자)", text: $draft, axis: .vertical)
+            .lineLimit(1...4)
+            .font(.callout)
+            .textFieldStyle(.roundedBorder)
+            .focused($focused)
+            .onAppear { draft = names.description(for: space.id) ?? "" }
+            .onSubmit(save)
+            .onChange(of: focused) { _, isFocused in if !isFocused { save() } }
+    }
+
+    private func save() {
+        if draft != (names.description(for: space.id) ?? "") { names.setDescription(draft, for: space.id) }
+        draft = names.description(for: space.id) ?? ""
     }
 }
 

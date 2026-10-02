@@ -15,7 +15,7 @@ struct Shortcut: Equatable, Codable {
         case needsModifier
         /// The "key" is itself a modifier.
         case modifierOnly
-        /// Esc, Return, ↑/↓, R and 1–9 already drive the open panel.
+        /// Esc, Return, ↑/↓, R, D and 1–9 already drive the open panel.
         case reservedKey
     }
 
@@ -26,7 +26,7 @@ struct Shortcut: Equatable, Codable {
     /// kVK_RightCommand (54) … kVK_Function (63).
     private static let modifierKeyCodes: ClosedRange<UInt16> = 54...63
     private static let reservedKeys: Set<UInt16> = Set([KeyCode.escape, KeyCode.returnKey, KeyCode.keypadEnter,
-                                                        KeyCode.upArrow, KeyCode.downArrow, KeyCode.r] + KeyCode.digits)
+                                                        KeyCode.upArrow, KeyCode.downArrow, KeyCode.r, KeyCode.d] + KeyCode.digits)
 
     var problem: Problem? {
         if Self.modifierKeyCodes.contains(keyCode) { return .modifierOnly }
@@ -73,6 +73,7 @@ struct Shortcut: Equatable, Codable {
 enum KeyCode {
     static let e: UInt16 = 14
     static let r: UInt16 = 15
+    static let d: UInt16 = 2
     static let returnKey: UInt16 = 36
     static let keypadEnter: UInt16 = 76
     static let escape: UInt16 = 53

@@ -87,7 +87,7 @@ macOS has no public Spaces API, so the app combines three mechanisms.
    - `Shortcut` handles validation, the UserDefaults key `switcherShortcut`, and a `didChange` notification.
 
 **Switcher** (`Switcher/`):
-- `SwitcherStateMachine` (pure; event in, action out) moves Idle → Holding → Sticky / Renaming per SPEC §3.1.
+- `SwitcherStateMachine` (pure; event in, action out) moves Idle → Holding → Sticky / Renaming / Describing per SPEC §3.1 (D edits the selected desktop's description, #17).
   - Releasing the modifier after 1 press enters Sticky (popup mode).
   - Releasing it after ≥ 2 presses switches (cycle mode).
 - `SwitcherController` wires the tap, machine, `SwitcherPanel`, and stores together.
@@ -100,7 +100,7 @@ macOS has no public Spaces API, so the app combines three mechanisms.
 **Other components:**
 - Per-desktop app icons in the switcher (#14): `Spaces/SpaceApps` (pure: filter layer-0, ≥50 px, regular apps; sort by window count) fed by `SpaceAppsProvider` (`CGWindowList` + `CGSCopySpacesForWindows`). UserDefaults `switcherShowAppIcons`. The controller warms the panel up at `start()` to keep the first open under 100 ms.
 - `HUD/` shows the desktop name briefly on every Space change (#13): `SpaceHUDContent`/`SpaceHUDSettings` are pure (UserDefaults `hudEnabled`/`hudDuration`/`hudPosition`); `SpaceHUDPanel` is a click-through panel on all Spaces.
-- `Store/NameStore` persists `names.json`: 30-character cap, an empty value deletes, unknown ids are kept.
+- `Store/NameStore` persists `names.json` (v2): names (30 chars) and multi-line descriptions (500 chars, #17); an empty value deletes, unknown ids are kept, v1 files still load.
 - `MenuBar/StatusItemController` shows the title and the menu, with a warning prefix when Accessibility is missing. The title comes from `MenuBarTitle` (pure; styles name / number+name / dots / dots+name / number, max name length; UserDefaults `menuBarStyle`/`menuBarMaxLength`) (#15).
 - `Onboarding/PermissionMonitor` polls AX trust and missing desktop shortcuts every 1 s on a background queue.
 - `Settings/` is a plain `NSWindow`, not the SwiftUI `Settings` scene. Tabs: General, Shortcut (the recorder suspends the tap), Desktops, Permissions.

@@ -35,6 +35,7 @@ enum KeyMapper {
         case KeyCode.upArrow: return .consume(.moveUp)
         case KeyCode.downArrow: return .consume(.moveDown)
         case KeyCode.r: return .consume(isAutorepeat ? nil : .beginRename)
+        case KeyCode.d: return .consume(isAutorepeat ? nil : .beginDescribe)
         default:
             if let i = KeyCode.digits.firstIndex(of: keyCode) { return .consume(.digit(i + 1)) }
             return .consume(nil)

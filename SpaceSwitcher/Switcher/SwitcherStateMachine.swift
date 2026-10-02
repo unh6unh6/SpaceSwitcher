@@ -11,6 +11,8 @@ struct SwitcherStateMachine {
         case sticky(selection: Int)
         /// Inline rename in progress; keys belong to the text field.
         case renaming(selection: Int)
+        /// Editing the selected desktop's description (#17); keys belong to the text editor.
+        case describing(selection: Int)
     }
 
     enum Event: Equatable {
@@ -27,6 +29,7 @@ struct SwitcherStateMachine {
         /// Move the selection to a row without switching (first half of a double-click rename).
         case highlight(Int)
         case beginRename, endRename
+        case beginDescribe, endDescribe
         case clickOutside
         /// The panel vanished without going through the machine (e.g. the app was hidden).
         case dismissed
@@ -39,6 +42,7 @@ struct SwitcherStateMachine {
         /// Hide the panel and switch to this row.
         case switchTo(Int)
         case rename(Int)
+        case describe(Int)
     }
 
     private(set) var state: State = .idle
@@ -54,7 +58,7 @@ struct SwitcherStateMachine {
     var isCapturingKeys: Bool {
         switch state {
         case .holding, .sticky: return true
-        case .idle, .renaming: return false
+        case .idle, .renaming, .describing: return false
         }
     }
 
@@ -115,7 +119,21 @@ struct SwitcherStateMachine {
             case .beginRename:
                 state = .renaming(selection: selection)
                 return .rename(selection)
+            case .beginDescribe:
+                state = .describing(selection: selection)
+                return .describe(selection)
             case .cancel, .clickOutside:
+                return close(.hide)
+            default:
+                return nil
+            }
+
+        case let .describing(selection):
+            switch event {
+            case .endDescribe:
+                state = .sticky(selection: selection)
+                return .select(selection)
+            case .clickOutside:
                 return close(.hide)
             default:
                 return nil

@@ -32,7 +32,7 @@ final class SwitcherStateMachineTests: XCTestCase {
     func testIdleIgnoresEverythingElse() {
         var m = machine()
         for event: SwitcherStateMachine.Event in [.modifierReleased, .moveUp, .moveDown, .digit(1),
-                                                 .confirm, .cancel, .select(0), .highlight(0), .beginRename, .endRename, .clickOutside, .dismissed] {
+                                                 .confirm, .cancel, .select(0), .highlight(0), .beginRename, .endRename, .beginDescribe, .endDescribe, .clickOutside, .dismissed] {
             XCTAssertNil(m.handle(event), "\(event)")
             XCTAssertEqual(m.state, .idle)
         }
@@ -206,6 +206,34 @@ final class SwitcherStateMachineTests: XCTestCase {
         XCTAssertEqual(m.handle(.dismissed), .hide)
         XCTAssertEqual(m.state, .idle)
         XCTAssertEqual(m.handle(.trigger(shift: false)), .show(selection: 1))
+    }
+
+    // MARK: Description (#17)
+
+    func testDescribeStopsKeyCaptureAndKeepsPanelOpen() {
+        var m = sticky(count: 4, initial: 2)
+        XCTAssertEqual(m.handle(.beginDescribe), .describe(2))
+        XCTAssertEqual(m.state, .describing(selection: 2))
+        XCTAssertFalse(m.isCapturingKeys)      // the text editor needs every key, Enter included
+        XCTAssertNil(m.handle(.moveDown))
+        XCTAssertNil(m.handle(.beginRename))
+        XCTAssertEqual(m.handle(.endDescribe), .select(2))
+        XCTAssertEqual(m.state, .sticky(selection: 2))
+    }
+
+    func testDescribeNotAvailableWhileHolding() {
+        var m = holding()
+        XCTAssertNil(m.handle(.beginDescribe))
+    }
+
+    func testClickOutsideOrDismissWhileDescribingHides() {
+        var m = sticky()
+        _ = m.handle(.beginDescribe)
+        XCTAssertEqual(m.handle(.clickOutside), .hide)
+        m = sticky()
+        _ = m.handle(.beginDescribe)
+        XCTAssertEqual(m.handle(.dismissed), .hide)
+        XCTAssertEqual(m.state, .idle)
     }
 
     func testRenameNotAvailableWhileHolding() {

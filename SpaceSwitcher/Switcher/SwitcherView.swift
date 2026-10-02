@@ -11,17 +11,29 @@ final class SwitcherViewModel: ObservableObject {
         /// Apps with windows on this desktop (#14); nil when the setting is off.
         var apps: [SpaceApps.App]? = nil
         var overflow = 0
+        /// Multi-line note for this desktop (#17).
+        var description: String? = nil
     }
 
     @Published var rows: [Row] = []
     @Published var selection = 0
     @Published var renamingRow: Int?
     @Published var draft = ""
+    /// The description area appears once any desktop has a description (#17).
+    @Published var showsDescriptionArea = false
+    @Published var describingRow: Int?
+    @Published var descriptionDraft = ""
+
+    var selectedDescription: String? {
+        rows.indices.contains(selection) ? rows[selection].description : nil
+    }
 
     var onClick: (Int) -> Void = { _ in }
     var onDoubleClick: (Int) -> Void = { _ in }
     var onCommitRename: (String) -> Void = { _ in }
     var onCancelRename: () -> Void = {}
+    var onCommitDescription: (String) -> Void = { _ in }
+    var onCancelDescription: () -> Void = {}
 }
 
 struct SwitcherView: View {
@@ -30,13 +42,21 @@ struct SwitcherView: View {
 
     @ObservedObject var model: SwitcherViewModel
     @FocusState private var fieldFocused: Bool
+    @FocusState private var editorFocused: Bool
+    /// Fixed height (~4 lines) so moving the selection never resizes the panel (#17).
+    static let descriptionHeight: CGFloat = 76
 
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
             ForEach(Array(model.rows.enumerated()), id: \.element.id) { i, row in
                 rowView(row, index: i)
             }
-            Text("↑↓ 이동 · Enter 전환 · 1–9 바로 이동 · R 이름 변경 · Esc 닫기")
+            if model.showsDescriptionArea || model.describingRow != nil {
+                descriptionArea
+            }
+            Text(model.describingRow != nil
+                 ? "⌘Enter 저장 · Enter 줄바꿈 · Esc 취소"
+                 : "↑↓ 이동 · Enter 전환 · 1–9 바로 이동 · R 이름 · D 설명 · Esc 닫기")
                 .font(.caption2)
                 .foregroundStyle(.secondary)
                 .padding(.top, 6)
@@ -44,6 +64,45 @@ struct SwitcherView: View {
         }
         .padding(10)
         .frame(width: model.rows.contains { $0.apps != nil } ? 440 : 340)
+    }
+
+    /// The selected desktop's description, or its editor while describing.
+    private var descriptionArea: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Divider().padding(.vertical, 6)
+            Group {
+                if model.describingRow != nil {
+                    TextEditor(text: $model.descriptionDraft)
+                        .font(.callout)
+                        .scrollContentBackground(.hidden)
+                        .background(RoundedRectangle(cornerRadius: 6).fill(Color.primary.opacity(0.06)))
+                        .focused($editorFocused)
+                        .onAppear { editorFocused = true }
+                        .onKeyPress(.return, phases: .down) { press in
+                            guard press.modifiers.contains(.command) else { return .ignored }  // plain Enter = newline
+                            model.onCommitDescription(model.descriptionDraft)
+                            return .handled
+                        }
+                        .onKeyPress(.escape) {
+                            model.onCancelDescription()
+                            return .handled
+                        }
+                } else if let text = model.selectedDescription {
+                    Text(text)
+                        .font(.callout)
+                        .lineLimit(4)
+                        .truncationMode(.tail)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                } else {
+                    Text("설명 없음 · D로 추가")
+                        .font(.callout)
+                        .foregroundStyle(.tertiary)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                }
+            }
+            .frame(height: Self.descriptionHeight)
+            .padding(.horizontal, 10)
+        }
     }
 
     /// Up to 5 app icons, "+N" for the rest, or "(비어 있음)" for a desktop without windows.

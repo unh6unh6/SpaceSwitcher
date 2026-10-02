@@ -52,6 +52,8 @@ final class SwitcherController {
         }
         model.onCommitRename = { [weak self] text in self?.commitRename(text) }
         model.onCancelRename = { [weak self] in self?.sendFromMain(.endRename) }
+        model.onCommitDescription = { [weak self] text in self?.commitDescription(text) }
+        model.onCancelDescription = { [weak self] in self?.sendFromMain(.endDescribe) }
 
         recordCurrentSpace()
         let workspace = NSWorkspace.shared.notificationCenter
@@ -127,10 +129,11 @@ final class SwitcherController {
             reloadRows()
             model.selection = selection
             model.renamingRow = nil
+            model.describingRow = nil
             panel.present()
             startClickMonitor()
         case .select(let row):
-            if model.renamingRow != nil { finishRenameUI() }
+            if model.renamingRow != nil || model.describingRow != nil { finishEditUI() }
             model.selection = row
         case .hide:
             close()
@@ -142,14 +145,32 @@ final class SwitcherController {
             model.selection = row
             model.draft = names.name(for: spaces[row].id) ?? ""
             model.renamingRow = row
-            if !activatedForRename {
-                let front = NSWorkspace.shared.frontmostApplication
-                focusBeforeRename = front?.processIdentifier == ProcessInfo.processInfo.processIdentifier ? nil : front
-            }
-            activatedForRename = true
-            NSApp.activate(ignoringOtherApps: true)
-            panel.makeKey()
+            takeKeyboard()
+        case .describe(let row):
+            guard spaces.indices.contains(row) else { return }
+            model.selection = row
+            model.descriptionDraft = names.description(for: spaces[row].id) ?? ""
+            model.describingRow = row
+            takeKeyboard()
         }
+    }
+
+    /// Text fields need the panel to be key, which means activating the app; remember who had focus (#7).
+    private func takeKeyboard() {
+        if !activatedForRename {
+            let front = NSWorkspace.shared.frontmostApplication
+            focusBeforeRename = front?.processIdentifier == ProcessInfo.processInfo.processIdentifier ? nil : front
+        }
+        activatedForRename = true
+        NSApp.activate(ignoringOtherApps: true)
+        panel.makeKey()
+    }
+
+    private func commitDescription(_ text: String) {
+        guard let row = model.describingRow, spaces.indices.contains(row) else { return }
+        names.setDescription(text, for: spaces[row].id)
+        reloadRows()
+        sendFromMain(.endDescribe)
     }
 
     private func commitRename(_ text: String) {
@@ -159,15 +180,17 @@ final class SwitcherController {
         sendFromMain(.endRename)
     }
 
-    /// Enter and Esc both land here; the panel stays open in Sticky (#7).
-    private func finishRenameUI() {
+    /// Save and cancel of both inline editors land here; the panel stays open in Sticky (#7, #17).
+    private func finishEditUI() {
         model.renamingRow = nil
+        model.describingRow = nil
         returnFocus()
     }
 
     /// `then` runs once the panel is really off screen, so a following Space switch doesn't animate it (#8).
     private func close(then: @escaping () -> Void = {}) {
         model.renamingRow = nil
+        model.describingRow = nil
         stopClickMonitor()
         returnFocus()
         panel.hide(then: then)
@@ -195,6 +218,7 @@ final class SwitcherController {
         model.rows = spaces.map { space in
             var row = SwitcherViewModel.Row(id: space.id, number: space.index, title: names.displayName(for: space),
                                             isNamed: names.name(for: space.id) != nil, isCurrent: space.isCurrent)
+            row.description = names.description(for: space.id)
             if let appsBySpace {
                 let shown = SpaceApps.visible(appsBySpace[space.managedID] ?? [], limit: Self.iconLimit)
                 row.apps = shown.apps
@@ -202,6 +226,7 @@ final class SwitcherController {
             }
             return row
         }
+        model.showsDescriptionArea = names.hasAnyDescription(among: Set(spaces.map(\.id)))
     }
 
     private func recordCurrentSpace() {
