@@ -9,6 +9,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private lazy var permissionsWindow = PermissionsWindowController(monitor: permissions)
     private lazy var switcher = SwitcherController(names: names, memos: memos)
     private var hud: SpaceHUDController?
+    private var memoOverlay: MemoOverlayController?
     private lazy var settingsWindow = SettingsWindowController(model: SettingsModel(
         names: names, memos: memos, permissions: permissions,
         setSwitcherSuspended: { [weak self] in self?.switcher.setSuspended($0) }))
@@ -28,6 +29,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard !isRunningTests else { return }
         migrateLegacyDescriptions()
         hud = SpaceHUDController(names: names)
+        memoOverlay = MemoOverlayController(names: names, memos: memos)
+        // Memo files are named after their desktop; follow renames (#18).
+        NotificationCenter.default.addObserver(forName: NameStore.didChange, object: names, queue: .main) { [weak self] _ in
+            guard let self else { return }
+            for space in SpaceProvider.spaces() { memos.renameFile(for: space.id, to: names.displayName(for: space)) }
+        }
 
         // The event tap can only be created once Accessibility is granted; retry when it is.
         permissions.$isTrusted

@@ -2,7 +2,7 @@ import AppKit
 import SwiftUI
 
 enum SettingsTab: Hashable {
-    case general, shortcut, desktops, permissions
+    case general, shortcut, desktops, memo, permissions
 }
 
 final class SettingsModel: ObservableObject {
@@ -17,6 +17,26 @@ final class SettingsModel: ObservableObject {
     @Published var menuBar = MenuBarTitle.Settings.load() {
         didSet { menuBar.save() }
     }
+    /// Merges only the fields this tab edits into the latest stored settings, because the overlay
+    /// saves its own frame/collapsed state meanwhile; saving a stale copy would undo a drag.
+    @Published var memo = MemoSettings.load() {
+        didSet {
+            guard !syncingMemo else { return }
+            var current = MemoSettings.load()
+            current.overlayEnabled = memo.overlayEnabled
+            current.previewEnabled = memo.previewEnabled
+            current.opacity = memo.opacity
+            current.hideWhenEmpty = memo.hideWhenEmpty
+            current.directoryPath = memo.directoryPath
+            if current.corner != memo.corner {
+                current.corner = memo.corner
+                current.frame = nil  // picking a corner replaces a dragged position
+            }
+            current.save()
+        }
+    }
+    private var syncingMemo = false
+    @Published private(set) var memoFolder = ""
     @Published var showAppIcons = SpaceApps.showIcons() {
         didSet { SpaceApps.setShowIcons(showAppIcons) }
     }
@@ -37,9 +57,17 @@ final class SettingsModel: ObservableObject {
         NotificationCenter.default.addObserver(forName: NameStore.didChange, object: names, queue: .main) { [weak self] _ in
             self?.reload()
         }
+        // Menu bar toggle and the overlay itself also change memo settings; mirror them here.
+        NotificationCenter.default.addObserver(forName: MemoSettings.didChange, object: nil, queue: .main) { [weak self] _ in
+            guard let self else { return }
+            syncingMemo = true
+            memo = MemoSettings.load()
+            syncingMemo = false
+        }
     }
 
     func reload() {
+        memoFolder = memos.directory.path
         spaces = SpaceProvider.spaces()
         unusedNames = names.unusedCount(keeping: Set(spaces.map(\.id)))
         launchStatus = LaunchAtLogin.status
@@ -48,6 +76,35 @@ final class SettingsModel: ObservableObject {
     func setLaunchAtLogin(_ on: Bool) {
         launchError = LaunchAtLogin.set(on)
         launchStatus = LaunchAtLogin.status
+    }
+
+    /// Folder picker → ask whether to move existing memos → switch the store (#18).
+    func chooseMemoFolder() {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.canCreateDirectories = true
+        panel.prompt = "선택"
+        panel.message = "메모(.md 파일)를 저장할 폴더를 고르세요"
+        panel.directoryURL = memos.directory
+        guard panel.runModal() == .OK, let url = panel.url, url.standardizedFileURL != memos.directory.standardizedFileURL else { return }
+
+        let alert = NSAlert()
+        alert.messageText = "기존 메모를 새 폴더로 옮길까요?"
+        alert.informativeText = "옮기지 않으면 새 폴더에 있는 메모를 사용합니다. 기존 파일은 그대로 남습니다."
+        alert.addButton(withTitle: "옮기기")
+        alert.addButton(withTitle: "그대로 두기")
+        alert.addButton(withTitle: "취소")
+        let answer = alert.runModal()
+        guard answer != .alertThirdButtonReturn else { return }
+        memos.changeDirectory(to: url, moveExisting: answer == .alertFirstButtonReturn)
+        memo.directoryPath = url.path
+        reload()
+    }
+
+    func openMemoFolder() {
+        try? FileManager.default.createDirectory(at: memos.directory, withIntermediateDirectories: true)
+        NSWorkspace.shared.open(memos.directory)
     }
 
     func removeUnusedNames() {
@@ -66,6 +123,8 @@ struct SettingsView: View {
                 .tabItem { Label("단축키", systemImage: "keyboard") }.tag(SettingsTab.shortcut)
             DesktopsTab(model: model)
                 .tabItem { Label("데스크탑", systemImage: "rectangle.3.group") }.tag(SettingsTab.desktops)
+            MemoTab(model: model)
+                .tabItem { Label("메모", systemImage: "note.text") }.tag(SettingsTab.memo)
             PermissionsView(monitor: model.permissions, onClose: nil)
                 .tabItem { Label("권한", systemImage: "lock.shield") }.tag(SettingsTab.permissions)
         }
@@ -132,6 +191,55 @@ private struct GeneralTab: View {
                     Text("직전 데스크탑").tag(InitialSelection.previous)
                 }
                 .pickerStyle(.radioGroup)
+            }
+        }
+        .formStyle(.grouped)
+    }
+}
+
+private struct MemoTab: View {
+    @ObservedObject var model: SettingsModel
+
+    var body: some View {
+        Form {
+            Section("저장 폴더") {
+                Text(model.memoFolder)
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .textSelection(.enabled)
+                    .lineLimit(2)
+                    .truncationMode(.middle)
+                HStack {
+                    Button("폴더 변경…", action: model.chooseMemoFolder)
+                    Button("Finder에서 열기", action: model.openMemoFolder)
+                }
+                Text("데스크탑마다 `이름.md` 파일 하나. 다른 편집기에서 고쳐도 바로 반영됩니다.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            Section("메모 띄우기") {
+                Toggle("현재 데스크탑 메모를 항상 위에 띄우기", isOn: $model.memo.overlayEnabled)
+                LabeledContent("투명도") {
+                    Slider(value: $model.memo.opacity, in: MemoSettings.minOpacity...1)
+                        .frame(maxWidth: 220)
+                    Text("\(Int(model.memo.opacity * 100))%").monospacedDigit().frame(width: 44, alignment: .trailing)
+                }
+                .disabled(!model.memo.overlayEnabled)
+                Picker("위치", selection: Binding(
+                    get: { model.memo.corner },
+                    set: { model.memo.corner = $0 })) {
+                    Text("왼쪽 위").tag(MemoSettings.Corner.topLeft)
+                    Text("오른쪽 위").tag(MemoSettings.Corner.topRight)
+                    Text("왼쪽 아래").tag(MemoSettings.Corner.bottomLeft)
+                    Text("오른쪽 아래").tag(MemoSettings.Corner.bottomRight)
+                }
+                .disabled(!model.memo.overlayEnabled)
+                Toggle("메모가 없는 데스크탑에서는 숨기기", isOn: $model.memo.hideWhenEmpty)
+                    .disabled(!model.memo.overlayEnabled)
+                Text("드래그로 옮기고 가장자리를 끌어 크기를 바꿀 수 있어요. 위치는 기억됩니다.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            Section("Option+E") {
+                Toggle("목록 옆에 선택한 데스크탑의 메모 미리보기", isOn: $model.memo.previewEnabled)
             }
         }
         .formStyle(.grouped)

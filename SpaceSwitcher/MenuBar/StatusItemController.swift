@@ -68,6 +68,9 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         let rename = item("현재 데스크탑 이름 변경…", #selector(renameCurrent))
         rename.isEnabled = spaces.contains(where: \.isCurrent)  // not on fullscreen Spaces
         menu.addItem(rename)
+        let memo = item("메모 띄우기", #selector(toggleMemoOverlay))
+        memo.state = MemoSettings.load().overlayEnabled ? .on : .off
+        menu.addItem(memo)
         let settings = item("설정…", #selector(openSettings))
         settings.keyEquivalent = ","
         menu.addItem(settings)
@@ -112,6 +115,12 @@ final class StatusItemController: NSObject, NSMenuDelegate {
 
     @objc private func openPermissions() {
         showPermissions()
+    }
+
+    @objc private func toggleMemoOverlay() {
+        var settings = MemoSettings.load()
+        settings.overlayEnabled.toggle()
+        settings.save()
     }
 
     @objc private func openSettings() {
