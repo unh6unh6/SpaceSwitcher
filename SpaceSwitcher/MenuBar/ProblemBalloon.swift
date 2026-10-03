@@ -1,14 +1,13 @@
 import AppKit
 import SwiftUI
 
-/// The balloon under the menu bar item when a problem starts (#23). Closes on any outside click.
+/// The balloon under the menu bar item when a problem starts (#23). Stays until its X (or a fix button)
+/// is clicked, on every desktop.
 ///
-/// Not `.transient`: an agent app is never active, and a transient popover of an inactive app closes the
-/// moment it opens (observed). So the popover stays until closed, and a global click monitor closes it
-/// on a click elsewhere — the same feel without needing to activate the app.
+/// A custom panel rather than `NSPopover`: macOS closes popovers on any Space change (observed), and a
+/// `.transient` popover of an inactive agent app closes the moment it opens.
 final class ProblemBalloon {
-    private var popover: NSPopover?
-    private var outsideClicks: Any?
+    private var panel: NSPanel?
 
     struct Actions {
         let openPermissions: () -> Void
@@ -18,27 +17,36 @@ final class ProblemBalloon {
     }
 
     func show(_ notice: ProblemNotices.Notice, from button: NSStatusBarButton, actions: Actions) {
-        popover?.close()
-        let popover = NSPopover()
-        popover.behavior = .applicationDefined
-        popover.animates = true
+        close()
+        guard let buttonWindow = button.window else { return }
+        let anchor = buttonWindow.convertToScreen(button.convert(button.bounds, to: nil))
+
         let close: () -> Void = { [weak self] in self?.close() }
-        popover.contentViewController = NSHostingController(rootView: ProblemBalloonView(notice: notice, actions: actions, close: close))
-        popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
-        // Stay put if the user switches desktops while the balloon is up.
-        popover.contentViewController?.view.window?.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
-        self.popover = popover
-        // Global monitors only see clicks in other apps, i.e. outside the balloon.
-        outsideClicks = outsideClicks ?? NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] _ in
-            self?.close()
-        }
+        let hosting = NSHostingView(rootView: ProblemBalloonView(notice: notice, actions: actions, close: close))
+        let size = hosting.fittingSize
+
+        let panel = NSPanel(contentRect: CGRect(origin: .zero, size: size),
+                            styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
+        panel.level = .statusBar
+        panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .ignoresCycle]
+        panel.isOpaque = false
+        panel.backgroundColor = .clear
+        panel.hasShadow = true
+        panel.hidesOnDeactivate = false
+        panel.contentView = hosting
+
+        // Tail under the status item, body kept on the screen that holds the menu bar.
+        let screen = (buttonWindow.screen ?? NSScreen.screens.first)?.visibleFrame ?? .zero
+        let x = min(max(anchor.midX - size.width / 2, screen.minX + 8), screen.maxX - size.width - 8)
+        panel.setFrame(CGRect(x: x, y: anchor.minY - size.height - 2, width: size.width, height: size.height), display: true)
+        hosting.rootView = ProblemBalloonView(notice: notice, actions: actions, close: close, tailX: anchor.midX - x)
+        panel.orderFrontRegardless()
+        self.panel = panel
     }
 
     func close() {
-        popover?.close()
-        popover = nil
-        if let outsideClicks { NSEvent.removeMonitor(outsideClicks) }
-        outsideClicks = nil
+        panel?.orderOut(nil)
+        panel = nil
     }
 }
 
@@ -46,8 +54,27 @@ private struct ProblemBalloonView: View {
     let notice: ProblemNotices.Notice
     let actions: ProblemBalloon.Actions
     let close: () -> Void
+    /// Horizontal position of the tail inside the balloon (points from the left edge).
+    var tailX: CGFloat = 170
+
+    private static let width: CGFloat = 340
+    private static let tail: CGFloat = 8
 
     var body: some View {
+        VStack(spacing: 0) {
+            Triangle()
+                .fill(.regularMaterial)
+                .frame(width: Self.tail * 2, height: Self.tail)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .offset(x: min(max(tailX - Self.tail, 14), Self.width - 14 - Self.tail * 2))
+            content
+                .background(RoundedRectangle(cornerRadius: 10).fill(.regularMaterial))
+                .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color.primary.opacity(0.08)))
+        }
+        .frame(width: Self.width)
+    }
+
+    private var content: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .top, spacing: 10) {
                 Image(systemName: "exclamationmark.triangle.fill")
@@ -58,19 +85,22 @@ private struct ProblemBalloonView: View {
                     Text(message).font(.callout).foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
+                Spacer(minLength: 0)
+                Button(action: close) {
+                    Image(systemName: "xmark").font(.caption.weight(.bold)).foregroundStyle(.secondary)
+                }
+                .buttonStyle(.borderless)
+                .help("닫기")
             }
             HStack {
                 if case .shortcutsOff = notice {
                     Button("다시 보지 않기") { actions.muteShortcuts(); close() }
                 }
                 Spacer()
-                Button("닫기", action: close)
                 Button(primaryTitle) { primaryAction(); close() }
-                    .keyboardShortcut(.defaultAction)
             }
         }
         .padding(14)
-        .frame(width: 340)
     }
 
     private var title: String {
@@ -106,5 +136,17 @@ private struct ProblemBalloonView: View {
         case .dock: actions.restartDock()
         case .shortcutsOff: actions.openKeyboardSettings()
         }
+    }
+}
+
+/// Upward-pointing tail.
+private struct Triangle: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        path.move(to: CGPoint(x: rect.midX, y: rect.minY))
+        path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
+        path.addLine(to: CGPoint(x: rect.minX, y: rect.maxY))
+        path.closeSubpath()
+        return path
     }
 }

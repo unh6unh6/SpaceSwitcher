@@ -13,8 +13,8 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     private let showSettings: () -> Void
     private var cancellables = Set<AnyCancellable>()
     private let balloon = ProblemBalloon()
-    /// A balloon waits until Space switching has settled: the Dock notice (#22) is detected mid-slide,
-    /// and a popover opened during a Space change is closed by the system right away (observed).
+    /// A balloon waits until Space switching has settled: the Dock notice (#22) is detected mid-slide, and
+    /// showing it then would anchor it to a menu bar that is still animating between Spaces.
     /// activeSpaceDidChange arrives only when a slide *ends*, so also wait a minimum after detection
     /// for the first slide of the fallback to land.
     private var pendingNotice: ProblemNotices.Notice?
