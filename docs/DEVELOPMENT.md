@@ -49,7 +49,8 @@ swift scripts/smoke.swift                           # 패널 열림/Sticky/Esc �
 | 합성 키가 아무 효과 없음 | 보내는 프로세스(터미널 앱 또는 SpaceSwitcher)에 손쉬운 사용 권한 없음. 에러는 안 남 |
 | 스위처로 이동 직후 Option+E에서 "삑" | 합성 Ctrl이 시스템 수식키 상태에 남는 문제. `ModifierRelease`로 해결됨 — 키 합성 코드를 바꿀 때 key-up 전송 유지 ([phase0-findings.md](phase0-findings.md) 후속 발견) |
 | Debug 빌드와 `/Applications` 설치본이 공존 | 번들 ID가 같음. "로그인 시 자동 실행"은 마지막으로 켠 쪽 경로를 가리킴 → 설치본에서 껐다 켜기 |
-| **`com.apple.symbolichotkeys`를 `defaults import`/`write`로 건드리지 말 것** | 2026-09-30 #8 측정 때 임시로 바꿨다 되돌린 뒤 "데스크탑 N으로 전환"(Ctrl+숫자)이 시스템 전체에서 먹통이 됨 (파일 내용은 원래대로, 앱 종료·설정 토글·`activateSettings -u`로도 복구 안 됨). **복구: 로그아웃 후 재로그인** (확인됨). 대체 경로를 시험하려면 앱 쪽 테스트 훅을 만들거나 사용자에게 시스템 설정에서 직접 끄게 할 것 |
+| **Ctrl+숫자("데스크탑 N으로 전환")만 시스템 전체에서 먹통** (Ctrl+←/→는 정상) | **Dock이 이 단축키에 반응하지 않는 상태**에 빠진 것. 설정 파일·`CGSIsSymbolicHotKeyEnabled` 모두 정상으로 보임. **복구: `killall Dock`** (2026-10-03 확인, 로그아웃도 Dock을 재시작해서 됐던 것). 계기는 미확인 — 처음엔 `defaults import`를 의심했으나 설정 파일을 안 건드려도 재발함. 이때 앱이 보낸 Ctrl+N은 맨 앞 앱으로 새어 들어감(예: Warp 검색창) |
+| `com.apple.symbolichotkeys`를 `defaults import`/`write`로 건드리지 말 것 | 시스템 단축키 설정 파일. 대체 경로를 시험하려면 앱 쪽 테스트 훅을 만들거나 사용자에게 시스템 설정에서 직접 끄게 할 것 |
 | `brew style`이 Sorbet/frozen string 경고 | cask 파일이 `Casks/` 폴더 밖에 있을 때만. release.sh는 `build/release/Casks/`에 생성 |
 
 ## 5. 데이터 위치 (디버깅용)
