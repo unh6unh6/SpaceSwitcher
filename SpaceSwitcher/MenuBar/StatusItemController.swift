@@ -1,5 +1,6 @@
 import AppKit
 import Combine
+import os
 
 /// Menu bar item: shows the current desktop and lists all desktops.
 final class StatusItemController: NSObject, NSMenuDelegate {
@@ -11,6 +12,19 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     private let showPermissions: () -> Void
     private let showSettings: () -> Void
     private var cancellables = Set<AnyCancellable>()
+    private let balloon = ProblemBalloon()
+    /// A balloon waits until Space switching has settled: the Dock notice (#22) is detected mid-slide,
+    /// and a popover opened during a Space change is closed by the system right away (observed).
+    /// activeSpaceDidChange arrives only when a slide *ends*, so also wait a minimum after detection
+    /// for the first slide of the fallback to land.
+    private var pendingNotice: ProblemNotices.Notice?
+    private var noticeSince = Date.distantPast
+    private var lastSpaceChange = Date.distantPast
+    private static let settleDelay: TimeInterval = 1.0
+    private static let minimumDelay: TimeInterval = 1.5
+    /// Problems as of the last check; a balloon pops only for problems that started since (#23).
+    /// Missing Accessibility at launch is left to the onboarding window.
+    private lazy var lastProblems = ProblemState(accessibilityMissing: !permissions.isTrusted)
 
     init(names: NameStore, permissions: PermissionMonitor,
          showPermissions: @escaping () -> Void, showSettings: @escaping () -> Void) {
@@ -27,14 +41,60 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         NSWorkspace.shared.notificationCenter.addObserver(
             self, selector: #selector(refreshTitle),
             name: NSWorkspace.activeSpaceDidChangeNotification, object: nil)
+        NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.activeSpaceDidChangeNotification, object: nil, queue: .main) { [weak self] _ in
+            self?.lastSpaceChange = Date()
+        }
         NotificationCenter.default.addObserver(
             self, selector: #selector(refreshTitle), name: NameStore.didChange, object: names)
         NotificationCenter.default.addObserver(
             self, selector: #selector(refreshTitle), name: MenuBarTitle.Settings.didChange, object: nil)
-        permissions.$isTrusted
+        // Debounced: the monitor's first background check lands shortly after launch.
+        Publishers.CombineLatest3(permissions.$isTrusted, permissions.$desktopsWithoutShortcut, permissions.$dockIgnoresShortcuts)
+            .map { ProblemState(accessibilityMissing: !$0, desktopsWithoutShortcut: $1, dockIgnoresShortcuts: $2) }
             .removeDuplicates()
-            .sink { [weak self] _ in DispatchQueue.main.async { self?.refreshTitle() } }
+            .debounce(for: .milliseconds(600), scheduler: DispatchQueue.main)
+            .sink { [weak self] state in self?.problemsChanged(state) }
             .store(in: &cancellables)
+    }
+
+    private var currentProblems: ProblemState {
+        ProblemState(accessibilityMissing: !permissions.isTrusted,
+                     desktopsWithoutShortcut: permissions.desktopsWithoutShortcut,
+                     dockIgnoresShortcuts: permissions.dockIgnoresShortcuts)
+    }
+
+    private static let log = Logger(subsystem: "io.github.unh6unh6.SpaceSwitcher", category: "Problems")
+
+    private func problemsChanged(_ state: ProblemState) {
+        let notices = ProblemNotices.new(previous: lastProblems, current: state, shortcutsMuted: ProblemNotices.shortcutsMuted())
+        Self.log.info("problems \(String(describing: state), privacy: .public) → notices \(String(describing: notices), privacy: .public)")
+        lastProblems = state
+        refreshTitle()
+        if let notice = notices.first {
+            pendingNotice = notice
+            noticeSince = Date()
+            showPendingNoticeWhenSettled()
+        } else if notices.isEmpty, !ProblemNotices.needsWarningMark(state, shortcutsMuted: ProblemNotices.shortcutsMuted()) {
+            pendingNotice = nil
+            balloon.close()  // the problem went away while its balloon was still open
+        }
+    }
+
+    private func showPendingNoticeWhenSettled() {
+        let wait = max(Self.settleDelay - Date().timeIntervalSince(lastSpaceChange),
+                       Self.minimumDelay - Date().timeIntervalSince(noticeSince))
+        guard wait <= 0 else {
+            DispatchQueue.main.asyncAfter(deadline: .now() + wait + 0.05) { [weak self] in self?.showPendingNoticeWhenSettled() }
+            return
+        }
+        guard let notice = pendingNotice, let button = statusItem.button else { return }
+        pendingNotice = nil
+        balloon.show(notice, from: button, actions: .init(
+            openPermissions: { [weak self] in self?.showPermissions() },
+            restartDock: { DockRestart.confirmAndRestart() },
+            openKeyboardSettings: { SystemSettings.open(.keyboard) },
+            muteShortcuts: { [weak self] in ProblemNotices.setShortcutsMuted(true); self?.refreshTitle() }))
     }
 
     /// Style and name length come from Settings → General (#15). Long names are cut only here;
@@ -45,7 +105,8 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         let settings = MenuBarTitle.Settings.load()
         let title = MenuBarTitle.text(style: settings.style, currentIndex: current?.index, desktopCount: spaces.count,
                                       name: current.flatMap { names.name(for: $0.id) }, maxLength: settings.maxLength)
-        statusItem.button?.title = permissions.isTrusted ? title : "⚠︎ \(title)"
+        let warn = ProblemNotices.needsWarningMark(currentProblems, shortcutsMuted: ProblemNotices.shortcutsMuted())
+        statusItem.button?.title = warn ? "⚠︎ \(title)" : title
     }
 
     // Rebuilt on every open because desktop add/remove/reorder has no notification.
@@ -59,6 +120,12 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         }
         if permissions.dockIgnoresShortcuts {
             menu.addItem(item("⚠︎ 데스크탑 전환 단축키 응답 없음 — Dock 다시 시작…", #selector(restartDock)))
+            menu.addItem(.separator())
+        }
+        let off = permissions.desktopsWithoutShortcut
+        if !off.isEmpty {
+            let numbers = off.map(String.init).joined(separator: ", ")
+            menu.addItem(item("⚠︎ 데스크탑 \(numbers)번 전환 단축키 꺼짐 — 시스템 설정…", #selector(openKeyboardSettings)))
             menu.addItem(.separator())
         }
         for space in spaces {
@@ -119,6 +186,10 @@ final class StatusItemController: NSObject, NSMenuDelegate {
 
     @objc private func openPermissions() {
         showPermissions()
+    }
+
+    @objc private func openKeyboardSettings() {
+        SystemSettings.open(.keyboard)
     }
 
     @objc private func restartDock() {
