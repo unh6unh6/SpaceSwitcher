@@ -1,3 +1,4 @@
+import AppKit
 import ApplicationServices
 import Combine
 import Foundation
@@ -17,6 +18,7 @@ final class PermissionMonitor: ObservableObject {
         NotificationCenter.default.addObserver(forName: SpaceSwitcherService.healthDidChange, object: nil, queue: .main) { [weak self] _ in
             self?.dockIgnoresShortcuts = SpaceSwitcherService.directShortcutsUnresponsive
         }
+
         refresh()
         timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in self?.refresh() }
     }
@@ -25,7 +27,21 @@ final class PermissionMonitor: ObservableObject {
     private let queue = DispatchQueue(label: "SpaceSwitcher.PermissionMonitor", qos: .utility)
     private var checking = false
 
+    /// A Dock restarted any other way (Terminal `killall Dock`, a crash, logout) also brings the shortcuts
+    /// back, so give direct switching another chance instead of staying on slow arrows (#22). NSWorkspace
+    /// posts no launch notification for the Dock (checked), so watch its pid on this 1 s tick.
+    private var dockPID = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.dock").first?.processIdentifier
+
+    private func checkDockRestart() {
+        let pid = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.dock").first?.processIdentifier
+        if let pid, pid != dockPID {
+            dockPID = pid
+            SpaceSwitcherService.resetHealth()
+        }
+    }
+
     func refresh() {
+        checkDockRestart()
         guard !checking else { return }  // a stalled check must not pile up a queue of new ones
         checking = true
         queue.async { [weak self] in
