@@ -20,6 +20,16 @@ func press(_ key: CGKeyCode, _ flags: CGEventFlags) {
     }
 }
 
+/// Real keyboards report Option going down before E; send the same order so the app's modifier
+/// tracking sees what it sees in real use (skipping it made the Sticky check flaky on a fresh launch).
+func pressOption() {
+    let event = CGEvent(keyboardEventSource: nil, virtualKey: optionKeyCode, keyDown: true)!
+    event.type = .flagsChanged
+    event.flags = .maskAlternate
+    event.post(tap: .cghidEventTap)
+    usleep(30_000)
+}
+
 func releaseModifiers() {
     let event = CGEvent(keyboardEventSource: nil, virtualKey: optionKeyCode, keyDown: false)!
     event.type = .flagsChanged
@@ -57,6 +67,7 @@ func check(_ name: String, _ ok: Bool, _ detail: String = "") {
 check("SpaceSwitcher is running", !runningPIDs().isEmpty, "(open the app first)")
 check("panel starts hidden", !panelVisible())
 
+pressOption()
 press(eKeyCode, .maskAlternate)
 let shown = waitFor(true)
 check("Option+E shows panel", shown != nil, shown.map { String(format: "(%.0f ms, target < 100)", $0 * 1000) } ?? "")
