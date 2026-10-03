@@ -81,6 +81,7 @@ macOS has no public Spaces API, so the app combines three mechanisms.
    - `SwitchPlanner` (pure) picks direct, arrows×n, or none.
    - `SpaceSwitcherService` posts the `CGEvent`s, then posts modifier key-ups via `ModifierRelease`. Without them, synthesized Ctrl sticks and the next Option+E beeps.
    - Needs Accessibility. Without it, the events are dropped silently.
+   - The Dock sometimes ignores "Switch to Desktop N" while Ctrl+←/→ still work (#22; `killall Dock` fixes it). A direct switch is verified within 0.7 s; on failure the trip finishes with arrows (`SwitchPlanner.followUp`), later switches skip direct (`avoidDirect`), and the menu bar / permissions view offer "Dock 다시 시작" (`DockRestart`). Debug hook: UserDefaults `debugSimulateDockIgnoresShortcuts`.
 3. **Global hotkey** (`Hotkey/`):
    - `EventTap` is a session `CGEventTap` on `keyDown` + `flagsChanged`, running on **its own thread** (#10: a stalled main thread made macOS bypass the tap). It re-enables itself after timeouts and on wake, and logs slow callbacks / disables to the unified log (subsystem = bundle ID). (Carbon hotkeys can't do Option-only combos on macOS 15+ and can't see a modifier being released.)
    - `KeyMapper` (pure) maps keys to switcher events and decides pass or consume. It ignores autorepeat of the shortcut key.

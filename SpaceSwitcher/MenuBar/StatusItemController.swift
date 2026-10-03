@@ -57,6 +57,10 @@ final class StatusItemController: NSObject, NSMenuDelegate {
             menu.addItem(item("⚠︎ 손쉬운 사용 권한 필요 — 설정…", #selector(openPermissions)))
             menu.addItem(.separator())
         }
+        if permissions.dockIgnoresShortcuts {
+            menu.addItem(item("⚠︎ 데스크탑 전환 단축키 응답 없음 — Dock 다시 시작…", #selector(restartDock)))
+            menu.addItem(.separator())
+        }
         for space in spaces {
             let entry = item("", #selector(selectSpace(_:)))
             entry.attributedTitle = title(for: space)
@@ -115,6 +119,10 @@ final class StatusItemController: NSObject, NSMenuDelegate {
 
     @objc private func openPermissions() {
         showPermissions()
+    }
+
+    @objc private func restartDock() {
+        DockRestart.confirmAndRestart()
     }
 
     @objc private func toggleMemoOverlay() {

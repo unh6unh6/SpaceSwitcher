@@ -37,6 +37,16 @@ struct PermissionsView: View {
                 }
             }
 
+            if monitor.dockIgnoresShortcuts {
+                step(done: false,
+                     title: "3. 데스크탑 전환 단축키가 응답하지 않음",
+                     detail: "macOS Dock이 \"데스크탑 N으로 전환\"(Ctrl+숫자)에 반응하지 않는 상태예요. "
+                        + "지금은 Ctrl+←/→로 대신 이동해서 느립니다. Dock을 다시 시작하면 돌아옵니다 "
+                        + "(창과 데스크탑 배치는 그대로).") {
+                    Button("Dock 다시 시작") { DockRestart.confirmAndRestart() }
+                }
+            }
+
             if let onClose {
                 HStack {
                     Spacer()
@@ -104,5 +114,19 @@ final class PermissionsWindowController {
 
     func close() {
         window?.close()
+    }
+}
+
+/// One confirmation, then `killall Dock` (#22). Shared by the menu bar and the permissions view.
+enum DockRestart {
+    static func confirmAndRestart() {
+        NSApp.activate(ignoringOtherApps: true)
+        let alert = NSAlert()
+        alert.messageText = "Dock을 다시 시작할까요?"
+        alert.informativeText = "Dock이 1~2초 깜빡입니다. 열린 창과 데스크탑 배치는 그대로 유지됩니다."
+        alert.addButton(withTitle: "다시 시작")
+        alert.addButton(withTitle: "취소")
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        DispatchQueue.global(qos: .userInitiated).async { SpaceSwitcherService.restartDock() }
     }
 }

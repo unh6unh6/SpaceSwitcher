@@ -8,10 +8,15 @@ final class PermissionMonitor: ObservableObject {
     @Published private(set) var isTrusted = AXIsProcessTrusted()
     /// Desktop numbers (1...16) whose "Switch to Desktop N" shortcut is off. Those use the slow arrow fallback.
     @Published private(set) var desktopsWithoutShortcut: [Int] = []
+    /// The Dock ignored a "Switch to Desktop N" press (#22); switching falls back to Ctrl+←/→.
+    @Published private(set) var dockIgnoresShortcuts = SpaceSwitcherService.directShortcutsUnresponsive
 
     private var timer: Timer?
 
     init() {
+        NotificationCenter.default.addObserver(forName: SpaceSwitcherService.healthDidChange, object: nil, queue: .main) { [weak self] _ in
+            self?.dockIgnoresShortcuts = SpaceSwitcherService.directShortcutsUnresponsive
+        }
         refresh()
         timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in self?.refresh() }
     }

@@ -53,4 +53,24 @@ final class SwitchPlannerTests: XCTestCase {
         XCTAssertEqual(SwitchPlanner.plan(to: desktop(2, position: 1), currentPosition: 0, hotkeys: [:]), .none)
         XCTAssertEqual(SwitchPlanner.plan(to: desktop(2, position: 1), currentPosition: nil, hotkeys: [81: right]), .none)
     }
+
+    // MARK: Dock ignoring "Switch to Desktop N" (#22)
+
+    func testAvoidDirectUsesArrowsEvenWhenShortcutExists() {
+        let plan = SwitchPlanner.plan(to: desktop(2, position: 1), currentPosition: 0, hotkeys: allKeys, avoidDirect: true)
+        XCTAssertEqual(plan, .arrows(right, count: 1))
+    }
+
+    func testAvoidDirectWithoutKnownPositionDoesNothing() {
+        XCTAssertEqual(SwitchPlanner.plan(to: desktop(2, position: 1), currentPosition: nil, hotkeys: allKeys, avoidDirect: true), .none)
+    }
+
+    // After a direct shortcut: arrived → nothing more; still elsewhere → finish with arrows from where we are.
+    func testFollowUpAfterDirect() {
+        XCTAssertEqual(SwitchPlanner.followUp(targetPosition: 2, landedPosition: 2, hotkeys: allKeys), .none)
+        XCTAssertEqual(SwitchPlanner.followUp(targetPosition: 2, landedPosition: 0, hotkeys: allKeys), .arrows(right, count: 2))
+        XCTAssertEqual(SwitchPlanner.followUp(targetPosition: 0, landedPosition: 3, hotkeys: allKeys), .arrows(left, count: 3))
+        XCTAssertEqual(SwitchPlanner.followUp(targetPosition: 2, landedPosition: nil, hotkeys: allKeys), .none)
+        XCTAssertEqual(SwitchPlanner.followUp(targetPosition: 2, landedPosition: 0, hotkeys: [:]), .none)
+    }
 }
