@@ -3,6 +3,32 @@ import XCTest
 
 /// #25: each desktop's memo reopens where it was being read.
 final class MemoScrollMemoryTests: XCTestCase {
+    private var defaults: UserDefaults!
+    private let suite = "SpaceSwitcherTests.MemoScrollMemory"
+
+    override func setUp() {
+        defaults = UserDefaults(suiteName: suite)
+        defaults.removePersistentDomain(forName: suite)
+    }
+
+    // Kept across app restarts (decided 2026-10-07).
+    func testPersistedPositionSurvivesRestart() {
+        var memory = MemoScrollMemory(persistingAs: "scroll", in: defaults)
+        memory.set(6, for: "A")
+        XCTAssertEqual(MemoScrollMemory(persistingAs: "scroll", in: defaults).position(for: "A", blockCount: 10), 6)
+        XCTAssertEqual(MemoScrollMemory(persistingAs: "other", in: defaults).position(for: "A", blockCount: 10), 0)
+    }
+
+    func testPruneForgetsRemovedDesktops() {
+        var memory = MemoScrollMemory(persistingAs: "scroll", in: defaults)
+        memory.set(3, for: "A")
+        memory.set(5, for: "GONE")
+        memory.prune(keeping: ["A"])
+        let reloaded = MemoScrollMemory(persistingAs: "scroll", in: defaults)
+        XCTAssertEqual(reloaded.position(for: "GONE", blockCount: 10), 0)
+        XCTAssertEqual(reloaded.position(for: "A", blockCount: 10), 3)
+    }
+
     func testUnknownDesktopStartsAtTop() {
         XCTAssertEqual(MemoScrollMemory().position(for: "A", blockCount: 10), 0)
     }

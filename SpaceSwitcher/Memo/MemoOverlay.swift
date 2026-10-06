@@ -17,7 +17,7 @@ final class MemoOverlayController: NSObject, NSWindowDelegate {
     /// Unsaved edits of desktops the user moved away from; they reopen on return (#26).
     private var drafts = MemoDrafts()
     /// Reading position per desktop (#25), and the desktop whose memo the panel shows now.
-    private var scroll = MemoScrollMemory()
+    private var scroll = MemoScrollMemory(persistingAs: "memoScrollOverlay")
     private var scrollShownFor: String?
     /// Frame changes we make ourselves must not be saved back as "the user moved it".
     private var applyingFrame = false
@@ -65,7 +65,9 @@ final class MemoOverlayController: NSObject, NSWindowDelegate {
             model.isEditing = false
             focus.release()
         }
-        for text in drafts.takeOrphans(keeping: Set(spaces.map(\.id))) { keepUnsavedText(text) }
+        let ids = Set(spaces.map(\.id))
+        if !spaces.isEmpty { scroll.prune(keeping: ids) }
+        for text in drafts.takeOrphans(keeping: ids) { keepUnsavedText(text) }
         scroll.set(model.scrollLine, for: scrollShownFor)
         model.title = currentSpace.map(names.displayName) ?? "전체화면"
         model.memo = currentSpace.flatMap { memos.memo(for: $0.id) }

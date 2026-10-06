@@ -25,12 +25,15 @@ final class SwitcherViewModel: ObservableObject {
     @Published var showsMemoPreview = false
     @Published var editingMemoRow: Int?
     @Published var memoDraft = ""
-    /// First visible block of the preview. Shift+↑↓ and mouse scrolling move it; remembered per desktop
-    /// while the app runs (#25).
+    /// First visible block of the preview. Shift+↑↓ and mouse scrolling move it; remembered per desktop,
+    /// across restarts (#25).
     @Published var memoScrollLine = 0 {
         didSet { memoScroll.set(memoScrollLine, for: selectedRow?.id) }
     }
-    private var memoScroll = MemoScrollMemory()
+    private var memoScroll = MemoScrollMemory(persistingAs: "memoScrollPreview")
+
+    /// Drops remembered positions of desktops that no longer exist.
+    func pruneMemoScroll(keeping ids: Set<String>) { memoScroll.prune(keeping: ids) }
 
     var selectedRow: Row? { rows.indices.contains(selection) ? rows[selection] : nil }
 

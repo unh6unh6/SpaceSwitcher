@@ -129,6 +129,7 @@ final class SwitcherController {
         case .show(let selection):
             spaces = snapshot
             reloadRows()
+            if !snapshot.isEmpty { model.pruneMemoScroll(keeping: Set(snapshot.map(\.id))) }
             model.selection = selection
             model.renamingRow = nil
             model.editingMemoRow = nil
