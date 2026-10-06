@@ -8,8 +8,8 @@ options:
 settings:
   base:
     SWIFT_VERSION: "5"
-    MARKETING_VERSION: "0.3.1"
-    CURRENT_PROJECT_VERSION: "7"
+    MARKETING_VERSION: "0.3.2"
+    CURRENT_PROJECT_VERSION: "8"
     # One self-signed cert for every build so the Accessibility grant survives rebuilds (see TODO.md).
     CODE_SIGN_STYLE: Manual
     CODE_SIGN_IDENTITY: "SpaceSwitcher Signing"
