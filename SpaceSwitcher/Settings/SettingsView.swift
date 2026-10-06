@@ -27,6 +27,8 @@ final class SettingsModel: ObservableObject {
             current.previewEnabled = memo.previewEnabled
             current.opacity = memo.opacity
             current.hideWhenEmpty = memo.hideWhenEmpty
+            current.overlayBackground = memo.overlayBackground
+            current.previewBackground = memo.previewBackground
             current.directoryPath = memo.directoryPath
             if current.corner != memo.corner {
                 current.corner = memo.corner
@@ -238,11 +240,18 @@ private struct MemoTab: View {
                 .disabled(!model.memo.overlayEnabled)
                 Toggle("메모가 없는 데스크탑에서는 숨기기", isOn: $model.memo.hideWhenEmpty)
                     .disabled(!model.memo.overlayEnabled)
+                Picker("배경색", selection: $model.memo.overlayBackground) {
+                    ForEach(MemoSettings.Background.allCases, id: \.self) { Text($0.title).tag($0) }
+                }
+                .disabled(!model.memo.overlayEnabled)
                 Text("드래그로 옮기고 가장자리를 끌어 크기를 바꿀 수 있어요. 위치는 기억됩니다.")
                     .font(.caption).foregroundStyle(.secondary)
             }
             Section("Option+E") {
                 Toggle("목록 옆에 선택한 데스크탑의 메모 미리보기", isOn: $model.memo.previewEnabled)
+                Picker("배경색", selection: $model.memo.previewBackground) {
+                    ForEach(MemoSettings.Background.allCases, id: \.self) { Text($0.title).tag($0) }
+                }
             }
         }
         .formStyle(.grouped)

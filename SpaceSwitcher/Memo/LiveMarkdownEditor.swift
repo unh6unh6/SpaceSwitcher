@@ -330,6 +330,8 @@ enum LiveStyleApplier {
     }
 
     static let fontSize: CGFloat = 12
+    /// Markers on the caret line: clearly readable, just quieter than the text.
+    static let markerColor = NSColor.secondaryLabelColor
     static let baseFont = NSFont.systemFont(ofSize: fontSize)
     static let codeFont = NSFont.monospacedSystemFont(ofSize: fontSize - 0.5, weight: .regular)
 
@@ -366,7 +368,7 @@ enum LiveStyleApplier {
         switch run.kind {
         case .syntax:
             if raw {
-                storage.addAttribute(.foregroundColor, value: NSColor.tertiaryLabelColor, range: r)
+                storage.addAttribute(.foregroundColor, value: LiveStyleApplier.markerColor, range: r)
             } else {
                 storage.addAttribute(.liveHidden, value: true, range: r)
             }
@@ -390,13 +392,13 @@ enum LiveStyleApplier {
             if raw { storage.addAttribute(.underlineStyle, value: NSUnderlineStyle.single.rawValue, range: r) }
         case .bullet:
             if raw {
-                storage.addAttribute(.foregroundColor, value: NSColor.tertiaryLabelColor, range: r)
+                storage.addAttribute(.foregroundColor, value: LiveStyleApplier.markerColor, range: r)
             } else {
                 storage.addAttributes([.foregroundColor: NSColor.clear, .liveDecoration: Decoration.bullet], range: r)
             }
         case .task(let checked):
             if raw {
-                storage.addAttribute(.foregroundColor, value: NSColor.tertiaryLabelColor, range: r)
+                storage.addAttribute(.foregroundColor, value: LiveStyleApplier.markerColor, range: r)
             } else {
                 storage.addAttributes([.foregroundColor: NSColor.clear,
                                        .liveDecoration: checked ? Decoration.taskDone : Decoration.task], range: r)
@@ -415,7 +417,7 @@ enum LiveStyleApplier {
             let line = (storage.string as NSString).lineRange(for: r)
             storage.addAttributes([.font: codeFont, .liveBlock: Block.code], range: line)
             if raw {
-                storage.addAttribute(.foregroundColor, value: NSColor.tertiaryLabelColor, range: r)
+                storage.addAttribute(.foregroundColor, value: LiveStyleApplier.markerColor, range: r)
             } else {
                 storage.addAttribute(.liveHidden, value: true, range: r)   // an empty band above/below the code
             }
@@ -424,7 +426,7 @@ enum LiveStyleApplier {
             storage.addAttributes([.font: codeFont, .liveBlock: Block.code], range: line)
         case .rule:
             if raw {
-                storage.addAttribute(.foregroundColor, value: NSColor.tertiaryLabelColor, range: r)
+                storage.addAttribute(.foregroundColor, value: LiveStyleApplier.markerColor, range: r)
             } else {
                 storage.addAttributes([.foregroundColor: NSColor.clear, .liveDecoration: Decoration.rule], range: r)
             }

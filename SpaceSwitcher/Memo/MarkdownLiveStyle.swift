@@ -45,7 +45,7 @@ enum MarkdownLiveStyle {
                 if length > 0 { runs.append(LiveStyleRun(range: NSRange(location: location, length: length), line: line, kind: kind)) }
             }
 
-            if trimmed.hasPrefix("```") {
+            if trimmed.hasPrefix("```") && !isInlineFence(trimmed) {
                 add(start, end - start, .fence)
                 inFence.toggle()
             } else if inFence {
@@ -93,6 +93,13 @@ enum MarkdownLiveStyle {
     }
 
     // MARK: - blocks
+
+    /// "```code```" on one line: inline code rather than a fence (chat-style writing).
+    private static func isInlineFence(_ trimmed: String) -> Bool {
+        let ticks = trimmed.prefix(while: { $0 == "`" }).count
+        let rest = trimmed.dropFirst(ticks)
+        return rest.contains(String(repeating: "`", count: ticks))
+    }
 
     private static let newline = unichar(10)
 
@@ -161,8 +168,21 @@ enum MarkdownLiveStyle {
         var i = start
         while i < end {
             let c = char(s, i)
-            if c == "`", let j = find("`", in: s, from: i + 1, to: end), j > i + 1 {
-                wrap(i, 1, j, 1, .code, add); i = j + 1; continue
+            if c == "`" {
+                // A run of n backticks closes at the next run of exactly n.
+                var n = 0
+                while char(s, i + n) == "`" { n += 1 }
+                let ticks = String(repeating: "`", count: n)
+                var from = i + n
+                var close: Int?
+                while let j = find(ticks, in: s, from: from, to: end) {
+                    if char(s, j + n) != "`" && char(s, j - 1) != "`" { close = j; break }
+                    from = j + 1
+                }
+                if let j = close, j > i + n {
+                    wrap(i, n, j, n, .code, add); i = j + n; continue
+                }
+                i += n; continue
             }
             if c == "*", char(s, i + 1) == "*", let j = find("**", in: s, from: i + 2, to: end), j > i + 2 {
                 wrap(i, 2, j, 2, .bold, add); i = j + 2; continue

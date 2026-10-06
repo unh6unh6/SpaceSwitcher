@@ -157,4 +157,37 @@ final class MemoSettingsTests: XCTestCase {
         XCTAssertTrue(loaded.isLocked("A"))
         XCTAssertFalse(loaded.isLocked("GONE"))
     }
+
+    // MARK: background colors (#27 follow-up)
+
+    func testBackgroundsDefaultToTheCurrentLook() {
+        let s = MemoSettings.load(from: defaults)
+        XCTAssertEqual(s.overlayBackground, .standard)
+        XCTAssertEqual(s.previewBackground, .standard)
+        XCTAssertNil(MemoSettings.Background.standard.rgb)       // the translucent HUD material
+        XCTAssertNil(MemoSettings.Background.standard.isDark)    // text follows the system
+    }
+
+    func testBackgroundsAreSetSeparatelyAndSaved() {
+        var s = MemoSettings()
+        s.overlayBackground = .yellow
+        s.previewBackground = .black
+        s.save(to: defaults)
+        let loaded = MemoSettings.load(from: defaults)
+        XCTAssertEqual(loaded.overlayBackground, .yellow)
+        XCTAssertEqual(loaded.previewBackground, .black)
+    }
+
+    // Light paper gets dark text, black gets light text.
+    func testTextContrastFollowsTheBackground() {
+        XCTAssertEqual(MemoSettings.Background.white.isDark, false)
+        XCTAssertEqual(MemoSettings.Background.yellow.isDark, false)
+        XCTAssertEqual(MemoSettings.Background.black.isDark, true)
+        XCTAssertEqual(MemoSettings.Background.allCases.count, 4)
+    }
+
+    func testUnknownBackgroundFallsBack() {
+        defaults.set("purple", forKey: "memoOverlayBackground")
+        XCTAssertEqual(MemoSettings.load(from: defaults).overlayBackground, .standard)
+    }
 }

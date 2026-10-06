@@ -53,6 +53,7 @@ final class MemoOverlayController: NSObject, NSWindowDelegate {
             guard let self, model.isFocused else { return }
             endFocus(returnToPreviousApp: false)
         }
+        panel.applyBackground(settings.overlayBackground)
         refresh()
     }
 
@@ -184,6 +185,7 @@ final class MemoOverlayController: NSObject, NSWindowDelegate {
         let oldCorner = settings.corner
         settings = MemoSettings.load()
         model.isLocked = settings.isLocked(currentSpace?.id)
+        panel.applyBackground(settings.overlayBackground)
         if !applyingFrame, oldCorner != settings.corner || oldLayout != settings.layout(for: currentSpace?.id) {
             placePanel()
         }
@@ -267,6 +269,11 @@ final class MemoOverlayModel: ObservableObject {
 /// by itself, sits above normal and floating windows on every Space, fullscreen apps included.
 final class MemoOverlayPanel: NSPanel {
     static let collapsedHeight: CGFloat = 34
+    private let effect = NSVisualEffectView()
+
+    func applyBackground(_ background: MemoSettings.Background) {
+        PanelBackground.apply(background, to: effect, in: self)
+    }
 
     init(model: MemoOverlayModel, delegate: NSWindowDelegate) {
         super.init(contentRect: CGRect(origin: .zero, size: MemoSettings.defaultSize),
@@ -288,7 +295,6 @@ final class MemoOverlayPanel: NSPanel {
         minSize = CGSize(width: 200, height: Self.collapsedHeight)
         self.delegate = delegate
 
-        let effect = NSVisualEffectView()
         effect.material = .hudWindow
         effect.blendingMode = .behindWindow
         effect.state = .active

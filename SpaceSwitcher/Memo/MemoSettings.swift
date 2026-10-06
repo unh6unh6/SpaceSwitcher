@@ -24,6 +24,39 @@ struct MemoSettings: Equatable {
     static let minOpacity = 0.3
     static let defaultSize = CGSize(width: 320, height: 220)
 
+    /// Background of the memo overlay / the Option+E panel. `standard` is the translucent HUD look.
+    enum Background: String, CaseIterable {
+        case standard, white, black, yellow
+
+        var title: String {
+            switch self {
+            case .standard: return "기본"
+            case .white: return "흰색"
+            case .black: return "검정"
+            case .yellow: return "노랑 (메모지)"
+            }
+        }
+
+        /// Solid color, 0…1 RGB; nil = the HUD material.
+        var rgb: (red: Double, green: Double, blue: Double)? {
+            switch self {
+            case .standard: return nil
+            case .white: return (0.98, 0.98, 0.97)
+            case .black: return (0.11, 0.11, 0.12)
+            case .yellow: return (1.0, 0.95, 0.64)
+            }
+        }
+
+        /// Whether text should be light; nil = follow the system / material.
+        var isDark: Bool? {
+            switch self {
+            case .standard: return nil
+            case .white, .yellow: return false
+            case .black: return true
+            }
+        }
+    }
+
     /// Where the overlay sits on one desktop (#24): its own frame and collapse state.
     struct Layout: Codable, Equatable {
         var frame: CGRect?
@@ -38,6 +71,8 @@ struct MemoSettings: Equatable {
     var frame: CGRect?
     var collapsed = false
     var hideWhenEmpty = false
+    var overlayBackground = Background.standard
+    var previewBackground = Background.standard
     /// Memo folder; nil = `MemoStore.defaultDirectory`.
     var directoryPath: String?
     /// Per-desktop layouts keyed by `Space.id` (#24). `frame`/`collapsed` above are the shared fallback,
@@ -85,6 +120,7 @@ struct MemoSettings: Equatable {
         static let corner = "memoCorner", frame = "memoFrame", collapsed = "memoCollapsed"
         static let hideWhenEmpty = "memoHideWhenEmpty", directory = "memoDirectory", layouts = "memoLayouts",
                          locked = "memoLocked"
+        static let overlayBackground = "memoOverlayBackground", previewBackground = "switcherBackground"
     }
 
     static func load(from defaults: UserDefaults = .standard) -> MemoSettings {
@@ -102,6 +138,8 @@ struct MemoSettings: Equatable {
             s.layouts = layouts
         }
         s.locked = Set(defaults.stringArray(forKey: Key.locked) ?? [])
+        s.overlayBackground = defaults.string(forKey: Key.overlayBackground).flatMap(Background.init) ?? .standard
+        s.previewBackground = defaults.string(forKey: Key.previewBackground).flatMap(Background.init) ?? .standard
         return s
     }
 
@@ -120,6 +158,8 @@ struct MemoSettings: Equatable {
         if let directoryPath { defaults.set(directoryPath, forKey: Key.directory) } else { defaults.removeObject(forKey: Key.directory) }
         defaults.set(try? JSONEncoder().encode(layouts), forKey: Key.layouts)
         defaults.set(locked.sorted(), forKey: Key.locked)
+        defaults.set(overlayBackground.rawValue, forKey: Key.overlayBackground)
+        defaults.set(previewBackground.rawValue, forKey: Key.previewBackground)
         NotificationCenter.default.post(name: Self.didChange, object: nil)
     }
 

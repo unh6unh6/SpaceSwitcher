@@ -72,6 +72,19 @@ final class MarkdownLiveStyleTests: XCTestCase {
         XCTAssertEqual(r.map(\.2), [0, 1, 2])
     }
 
+    // Chat style: ```code``` on one line is inline code, not the start of a block (its text vanished).
+    func testTripleBackticksOnOneLineAreInlineCode() {
+        assertRuns("```let x = 1```", [("```", .syntax), ("let x = 1", .code), ("```", .syntax)])
+        let r = runs("```한 줄```\n다음 줄")
+        XCTAssertEqual(r.map(\.1), [.syntax, .code, .syntax], "the next line stays plain text")
+        assertRuns("a ``b`c`` d", [("``", .syntax), ("b`c", .code), ("``", .syntax)])
+    }
+
+    func testFenceWithLanguageStillOpensABlock() {
+        let r = runs("```swift\nlet x\n```")
+        XCTAssertEqual(r.map(\.1), [.fence, .codeBlock, .fence])
+    }
+
     func testLineNumbers() {
         let r = runs("plain\n- [ ] a\n## b")
         XCTAssertEqual(r.map(\.2), [1, 1, 2, 2])

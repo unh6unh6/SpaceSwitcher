@@ -65,6 +65,35 @@ final class LiveMarkdownRenderTests: XCTestCase {
         snapshot(view, "bullets")
     }
 
+    func testCodeBlockDark() {
+        let code = "앞\n```swift\nlet x = 1\nprint(x)\n```\n뒤"
+        for (name, caret) in [("code-reader", nil), ("code-caret-in", 12), ("code-caret-after", (code as NSString).length)] as [(String, Int?)] {
+            let (window, view) = makeEditor(code)
+            window.appearance = NSAppearance(named: .vibrantDark)
+            view.isEditable = caret != nil
+            if let caret { window.makeFirstResponder(view); view.setSelectedRange(NSRange(location: caret, length: 0)) }
+            view.restyle(force: true)
+            snapshot(view, name)
+        }
+    }
+
+    func testOverlayBackgrounds() {
+        final class NoDelegate: NSObject, NSWindowDelegate {}
+        let delegate = NoDelegate()
+        for background in MemoSettings.Background.allCases where background != .standard {
+            let model = MemoOverlayModel()
+            model.title = "업무"
+            model.text = sample
+            model.version = 1
+            let panel = MemoOverlayPanel(model: model, delegate: delegate)
+            panel.applyBackground(background)
+            panel.setFrame(CGRect(x: 0, y: 0, width: 320, height: 300), display: true)
+            panel.contentView?.layoutSubtreeIfNeeded()
+            RunLoop.current.run(until: Date().addingTimeInterval(0.3))
+            snapshot(panel.contentView!, "overlay-\(background.rawValue)")
+        }
+    }
+
     func testCaretOnTaskLineShowsItsSource() {
         let (window, view) = makeEditor(sample)
         view.isEditable = true
@@ -81,7 +110,7 @@ final class LiveMarkdownRenderTests: XCTestCase {
         NSGraphicsContext.saveGraphicsState()
         let context = NSGraphicsContext(bitmapImageRep: rep)!
         NSGraphicsContext.current = context
-        NSColor.windowBackgroundColor.setFill()
+        NSColor.gray.setFill()   // stands in for whatever is behind a translucent panel
         view.bounds.fill()
         NSGraphicsContext.restoreGraphicsState()
         view.cacheDisplay(in: view.bounds, to: rep)
