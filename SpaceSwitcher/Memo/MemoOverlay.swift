@@ -11,6 +11,9 @@ final class MemoOverlayController: NSObject, NSWindowDelegate {
     private let focus = FocusReturner()
     private var settings = MemoSettings.load()
     private var currentSpace: Space?
+    /// The desktop whose memo is being edited (#26). The overlay follows the active desktop, so the
+    /// current desktop can change mid-edit; saving must go here, not to `currentSpace`.
+    private var editingSpace: Space?
     /// Frame changes we make ourselves must not be saved back as "the user moved it".
     private var applyingFrame = false
 
@@ -42,7 +45,11 @@ final class MemoOverlayController: NSObject, NSWindowDelegate {
 
     private func refresh() {
         currentSpace = SpaceProvider.spaces().first(where: \.isCurrent)
-        guard model.isEditing == false else { return }  // never yank text out from under the editor
+        if let editingSpace {
+            // Never yank text out from under the editor, and keep saying whose memo it is (#26).
+            model.title = MemoEditTarget.editingTitle(names.displayName(for: editingSpace))
+            return
+        }
         model.title = currentSpace.map(names.displayName) ?? "전체화면"
         model.memo = currentSpace.flatMap { memos.memo(for: $0.id) }
         model.canEdit = currentSpace != nil
@@ -64,8 +71,10 @@ final class MemoOverlayController: NSObject, NSWindowDelegate {
     // MARK: editing
 
     private func beginEdit() {
-        guard currentSpace != nil else { return }
+        guard let space = currentSpace else { return }
         if settings.collapsed { toggleCollapse() }
+        editingSpace = space
+        model.title = MemoEditTarget.editingTitle(names.displayName(for: space))
         model.draft = model.memo ?? ""
         model.isEditing = true
         panel.alphaValue = 1
@@ -73,10 +82,25 @@ final class MemoOverlayController: NSObject, NSWindowDelegate {
     }
 
     private func save(_ text: String) {
-        if let space = currentSpace {
+        switch MemoEditTarget.resolve(editing: editingSpace, in: SpaceProvider.spaces()) {
+        case .save(let space):
             memos.setMemo(text, for: space.id, desktopName: names.displayName(for: space))
+        case .gone:
+            keepUnsavedText(text)
+        case .nothing:
+            break
         }
         endEdit()
+    }
+
+    /// The edited desktop vanished mid-edit: don't write it anywhere else, hand the text back instead.
+    private func keepUnsavedText(_ text: String) {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(text, forType: .string)
+        let alert = NSAlert()
+        alert.messageText = "편집하던 데스크탑이 없어져 메모를 저장하지 못했어요"
+        alert.informativeText = "작성한 내용은 클립보드에 복사해 두었어요."
+        alert.runModal()
     }
 
     /// Checkbox click (#19): flip that line in the file without entering edit mode.
@@ -86,6 +110,7 @@ final class MemoOverlayController: NSObject, NSWindowDelegate {
     }
 
     private func endEdit() {
+        editingSpace = nil
         model.isEditing = false
         focus.giveBack()
         refresh()
