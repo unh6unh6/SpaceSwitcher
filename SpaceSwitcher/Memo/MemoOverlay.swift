@@ -14,6 +14,8 @@ final class MemoOverlayController: NSObject, NSWindowDelegate {
     /// The desktop whose memo is being edited (#26). The overlay follows the active desktop, so the
     /// current desktop can change mid-edit; saving must go here, not to `currentSpace`.
     private var editingSpace: Space?
+    /// Unsaved edits of desktops the user moved away from; they reopen on return (#26).
+    private var drafts = MemoDrafts()
     /// Reading position per desktop (#25), and the desktop whose memo the panel shows now.
     private var scroll = MemoScrollMemory()
     private var scrollShownFor: String?
@@ -49,12 +51,21 @@ final class MemoOverlayController: NSObject, NSWindowDelegate {
     // MARK: content
 
     private func refresh() {
-        currentSpace = SpaceProvider.spaces().first(where: \.isCurrent)
+        let spaces = SpaceProvider.spaces()
+        currentSpace = spaces.first(where: \.isCurrent)
         if let editingSpace {
-            // Never yank text out from under the editor, and keep saying whose memo it is (#26).
-            model.title = MemoEditTarget.editingTitle(names.displayName(for: editingSpace))
-            return
+            if editingSpace.id == currentSpace?.id {
+                // Same desktop (e.g. the file changed on disk): never yank text out from under the editor.
+                model.title = MemoEditTarget.editingTitle(names.displayName(for: editingSpace))
+                return
+            }
+            // Moved away mid-edit (#26): park the text with its desktop and show this one normally.
+            drafts.park(model.draft, for: editingSpace.id)
+            self.editingSpace = nil
+            model.isEditing = false
+            focus.release()
         }
+        for text in drafts.takeOrphans(keeping: Set(spaces.map(\.id))) { keepUnsavedText(text) }
         scroll.set(model.scrollLine, for: scrollShownFor)
         model.title = currentSpace.map(names.displayName) ?? "전체화면"
         model.memo = currentSpace.flatMap { memos.memo(for: $0.id) }
@@ -64,6 +75,9 @@ final class MemoOverlayController: NSObject, NSWindowDelegate {
         model.scrollLine = scroll.position(for: scrollShownFor,
                                            blockCount: model.memo.map { MarkdownBlocks.parse($0).count } ?? 0)
         if placedFor != .some(currentSpace?.id), panel.isVisible { relocate() }
+        if let space = currentSpace, let draft = drafts.take(for: space.id) {
+            resumeEdit(space, draft: draft)
+        }
         updateVisibility()
     }
 
@@ -95,9 +109,13 @@ final class MemoOverlayController: NSObject, NSWindowDelegate {
     private func beginEdit() {
         guard let space = currentSpace else { return }
         if settings.layout(for: space.id).collapsed { toggleCollapse() }
+        resumeEdit(space, draft: model.memo ?? "")
+    }
+
+    private func resumeEdit(_ space: Space, draft: String) {
         editingSpace = space
         model.title = MemoEditTarget.editingTitle(names.displayName(for: space))
-        model.draft = model.memo ?? ""
+        model.draft = draft
         model.isEditing = true
         panel.alphaValue = 1
         focus.take(for: panel)

@@ -17,6 +17,15 @@ final class FocusReturner {
         window.makeKey()
     }
 
+    /// Lets go without reactivating the previous app: used when the user already moved to another
+    /// desktop, where activating an app from the old one would pull them back.
+    func release() {
+        guard borrowed else { return }
+        borrowed = false
+        previous = nil
+        NSApp.deactivate()
+    }
+
     func giveBack() {
         guard borrowed else { return }
         borrowed = false
