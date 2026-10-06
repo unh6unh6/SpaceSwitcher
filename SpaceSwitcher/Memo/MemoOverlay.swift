@@ -14,6 +14,9 @@ final class MemoOverlayController: NSObject, NSWindowDelegate {
     /// The desktop whose memo is being edited (#26). The overlay follows the active desktop, so the
     /// current desktop can change mid-edit; saving must go here, not to `currentSpace`.
     private var editingSpace: Space?
+    /// Reading position per desktop (#25), and the desktop whose memo the panel shows now.
+    private var scroll = MemoScrollMemory()
+    private var scrollShownFor: String?
     /// Frame changes we make ourselves must not be saved back as "the user moved it".
     private var applyingFrame = false
     /// The desktop whose layout the panel currently shows (#24); nil = shared layout (fullscreen Space).
@@ -52,9 +55,14 @@ final class MemoOverlayController: NSObject, NSWindowDelegate {
             model.title = MemoEditTarget.editingTitle(names.displayName(for: editingSpace))
             return
         }
+        scroll.set(model.scrollLine, for: scrollShownFor)
         model.title = currentSpace.map(names.displayName) ?? "전체화면"
         model.memo = currentSpace.flatMap { memos.memo(for: $0.id) }
         model.canEdit = currentSpace != nil
+        scrollShownFor = currentSpace?.id
+        model.scrollKey = currentSpace?.id ?? ""
+        model.scrollLine = scroll.position(for: scrollShownFor,
+                                           blockCount: model.memo.map { MarkdownBlocks.parse($0).count } ?? 0)
         if placedFor != .some(currentSpace?.id), panel.isVisible { relocate() }
         updateVisibility()
     }
@@ -198,6 +206,10 @@ final class MemoOverlayModel: ObservableObject {
     @Published var canEdit = true
     @Published var isEditing = false
     @Published var isCollapsed = false
+    /// First visible block of the memo; mouse scrolling updates it, desktop changes restore it (#25).
+    @Published var scrollLine = 0
+    /// Whose memo is shown; a new value gives a fresh scroll view opened at `scrollLine`.
+    @Published var scrollKey = ""
     @Published var draft = ""
 
     var onEdit: () -> Void = {}
@@ -298,6 +310,7 @@ struct MemoOverlayView: View {
     }
 
     private var content: some View {
+        ScrollViewReader { proxy in
         ScrollView {
             Group {
                 if let memo = model.memo {
@@ -311,6 +324,15 @@ struct MemoOverlayView: View {
             }
             .frame(maxWidth: .infinity, alignment: .topLeading)
         }
+        .scrollPosition(id: Binding(get: { model.scrollLine },
+                                    set: { if let line = $0 { model.scrollLine = line } }),
+                        anchor: .top)
+        .onAppear {
+            let line = model.scrollLine
+            DispatchQueue.main.async { proxy.scrollTo(line, anchor: .top) }
+        }
+        }
+        .id(model.scrollKey)
         .contentShape(Rectangle())
         .onTapGesture(count: 2) { model.onEdit() }
         .onTapGesture { if model.memo == nil { model.onEdit() } }

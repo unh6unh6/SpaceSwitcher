@@ -1,4 +1,5 @@
 import AppKit
+import SwiftUI
 
 /// Wires the event tap, state machine, panel and stores together.
 ///
@@ -155,7 +156,7 @@ final class SwitcherController {
             takeKeyboard()
             panel.recenter()
         case .scrollMemo(let step):
-            model.scrollMemo(by: step)
+            withAnimation(.easeOut(duration: 0.12)) { model.scrollMemo(by: step) }
         }
     }
 

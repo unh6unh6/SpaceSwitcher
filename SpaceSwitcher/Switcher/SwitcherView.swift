@@ -17,7 +17,7 @@ final class SwitcherViewModel: ObservableObject {
 
     @Published var rows: [Row] = []
     @Published var selection = 0 {
-        didSet { if selection != oldValue { memoScrollLine = 0 } }
+        didSet { restoreMemoScroll() }
     }
     @Published var renamingRow: Int?
     @Published var draft = ""
@@ -25,13 +25,23 @@ final class SwitcherViewModel: ObservableObject {
     @Published var showsMemoPreview = false
     @Published var editingMemoRow: Int?
     @Published var memoDraft = ""
-    /// First visible block of the preview; Shift+↑↓ moves it.
-    @Published var memoScrollLine = 0
+    /// First visible block of the preview. Shift+↑↓ and mouse scrolling move it; remembered per desktop
+    /// while the app runs (#25).
+    @Published var memoScrollLine = 0 {
+        didSet { memoScroll.set(memoScrollLine, for: selectedRow?.id) }
+    }
+    private var memoScroll = MemoScrollMemory()
 
     var selectedRow: Row? { rows.indices.contains(selection) ? rows[selection] : nil }
 
     /// Blocks (≈ lines) per Shift+↑↓ press.
     static let scrollStep = 4
+
+    /// Back to where the selected desktop's memo was being read.
+    func restoreMemoScroll() {
+        let blockCount = selectedRow?.memo.map { MarkdownBlocks.parse($0).count } ?? 0
+        memoScrollLine = memoScroll.position(for: selectedRow?.id, blockCount: blockCount)
+    }
 
     func scrollMemo(by steps: Int) {
         let blockCount = selectedRow?.memo.map { MarkdownBlocks.parse($0).count } ?? 0
@@ -118,15 +128,21 @@ struct SwitcherView: View {
                         model.onCancelMemo()
                         return .handled
                     }
-            } else if let memo = model.selectedRow?.memo {
+            } else if let row = model.selectedRow, let memo = row.memo {
                 ScrollViewReader { proxy in
                     ScrollView {
                         MarkdownView(text: memo, onToggleTask: model.onToggleTask)   // block ids = scroll targets
                     }
-                    .onChange(of: model.memoScrollLine) { _, line in
-                        withAnimation(.easeOut(duration: 0.12)) { proxy.scrollTo(line, anchor: .top) }
+                    // Two-way: mouse scrolling updates the line, Shift+↑↓ / restoring sets it (#25).
+                    .scrollPosition(id: Binding(get: { model.memoScrollLine },
+                                                set: { if let line = $0 { model.memoScrollLine = line } }),
+                                    anchor: .top)
+                    .onAppear {
+                        let line = model.memoScrollLine
+                        DispatchQueue.main.async { proxy.scrollTo(line, anchor: .top) }
                     }
                 }
+                .id(row.id)   // a fresh scroll view per desktop, opened at its remembered block
             } else {
                 Text("메모 없음 · D로 작성")
                     .font(.callout)

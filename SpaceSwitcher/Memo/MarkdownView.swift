@@ -17,6 +17,7 @@ struct MarkdownView: View {
                     .id(index)
             }
         }
+        .scrollTargetLayout()   // blocks are what a surrounding ScrollView reports as its position (#25)
         .font(.callout)
     }
 
