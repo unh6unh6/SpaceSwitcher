@@ -43,6 +43,16 @@ struct MemoSettings: Equatable {
     /// Per-desktop layouts keyed by `Space.id` (#24). `frame`/`collapsed` above are the shared fallback,
     /// used by desktops that have none yet and by fullscreen app Spaces.
     var layouts: [String: Layout] = [:]
+    /// Desktops whose memo is read-only (#27).
+    var locked: Set<String> = []
+
+    func isLocked(_ spaceID: String?) -> Bool {
+        spaceID.map(locked.contains) ?? false
+    }
+
+    mutating func setLocked(_ value: Bool, for spaceID: String) {
+        if value { locked.insert(spaceID) } else { locked.remove(spaceID) }
+    }
 
     func layout(for spaceID: String?) -> Layout {
         spaceID.flatMap { layouts[$0] } ?? Layout(frame: frame, collapsed: collapsed)
@@ -65,6 +75,7 @@ struct MemoSettings: Equatable {
 
     mutating func pruneLayouts(keeping ids: Set<String>) {
         layouts = layouts.filter { ids.contains($0.key) }
+        locked = locked.intersection(ids)
     }
 
     static let didChange = Notification.Name("MemoSettings.didChange")
@@ -72,7 +83,8 @@ struct MemoSettings: Equatable {
     private enum Key {
         static let overlay = "memoOverlayEnabled", preview = "memoPreviewEnabled", opacity = "memoOpacity"
         static let corner = "memoCorner", frame = "memoFrame", collapsed = "memoCollapsed"
-        static let hideWhenEmpty = "memoHideWhenEmpty", directory = "memoDirectory", layouts = "memoLayouts"
+        static let hideWhenEmpty = "memoHideWhenEmpty", directory = "memoDirectory", layouts = "memoLayouts",
+                         locked = "memoLocked"
     }
 
     static func load(from defaults: UserDefaults = .standard) -> MemoSettings {
@@ -89,6 +101,7 @@ struct MemoSettings: Equatable {
            let layouts = try? JSONDecoder().decode([String: Layout].self, from: data) {
             s.layouts = layouts
         }
+        s.locked = Set(defaults.stringArray(forKey: Key.locked) ?? [])
         return s
     }
 
@@ -106,6 +119,7 @@ struct MemoSettings: Equatable {
         defaults.set(hideWhenEmpty, forKey: Key.hideWhenEmpty)
         if let directoryPath { defaults.set(directoryPath, forKey: Key.directory) } else { defaults.removeObject(forKey: Key.directory) }
         defaults.set(try? JSONEncoder().encode(layouts), forKey: Key.layouts)
+        defaults.set(locked.sorted(), forKey: Key.locked)
         NotificationCenter.default.post(name: Self.didChange, object: nil)
     }
 

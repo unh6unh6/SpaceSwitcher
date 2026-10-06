@@ -136,3 +136,16 @@ TextEdit에서 Option+E 연타, Option+Shift+E 연타 후 Option 뗌:
 - "창 있음" 판단은 어떤 Space에 속한 창만: TextEdit은 Space에 속하지 않는 숨은 창(694×64 등)이 있음
 
 **분류 (`--classify`)**: 확실 = Finder, Notion, Warp, Chrome / 후보(확인 필요) = Claude "새 채팅"(오답), MarkEdit "New"(정답) / 단일 창 = 카카오톡, Discord, IntelliJ(켜져 있을 때)
+
+## #27 라이브 편집 스파이크 (2026-10-07, `spike/livetext.swift`)
+
+메모 오버레이(비활성 `NSPanel`) 안의 `NSTextView`로 "클릭하면 바로 입력 + 커서 줄만 원문"이 되는지 확인.
+
+| 확인 | 결과 |
+|---|---|
+| 클릭 시 `NSApp.activate` + `makeKey` 후 `super.mouseDown` | 클릭한 자리에 커서, 입력 들어감. **한글 IME 조합 정상**(c d → "ㅊㅇ") |
+| 활성화 없이 클릭만 | 판단 보류: 스크립트 앱이 이미 활성 상태로 시작해 비교 불가. 실제 앱은 FocusReturner 방식(위)으로 간다 |
+| TextKit 1 `NSLayoutManagerDelegate.shouldGenerateGlyphs`에서 `.null` 글리프 | `## Heading` 84pt → 숨김 63pt = `Heading` 63pt. 기호가 **자리까지** 사라짐 |
+| `characterIndex(for:in:)` → 줄 번호 | 정확 (체크박스 클릭 판정에 사용) |
+
+주의: 스크립트가 합성 키를 보내므로 실행 전에 Finder를 앞에 둔다(입력이 새도 터미널로 가지 않게). `setAttributedString`으로 매번 새로 넣어야 이전 숨김 속성이 새 글자에 번지지 않는다.

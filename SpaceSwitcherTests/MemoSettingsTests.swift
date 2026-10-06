@@ -133,4 +133,28 @@ final class MemoSettingsTests: XCTestCase {
         s.pruneLayouts(keeping: ["A"])
         XCTAssertEqual(s.layouts.keys.sorted(), ["A"])
     }
+
+    // MARK: read-only lock (#27)
+
+    func testLockIsPerDesktop() {
+        var s = MemoSettings()
+        XCTAssertFalse(s.isLocked("A"))
+        s.setLocked(true, for: "A")
+        XCTAssertTrue(s.isLocked("A"))
+        XCTAssertFalse(s.isLocked("B"))
+        XCTAssertFalse(s.isLocked(nil))
+        s.setLocked(false, for: "A")
+        XCTAssertFalse(s.isLocked("A"))
+    }
+
+    func testLocksSurviveSaveAndPrune() {
+        var s = MemoSettings()
+        s.setLocked(true, for: "A")
+        s.setLocked(true, for: "GONE")
+        s.pruneLayouts(keeping: ["A"])
+        s.save(to: defaults)
+        let loaded = MemoSettings.load(from: defaults)
+        XCTAssertTrue(loaded.isLocked("A"))
+        XCTAssertFalse(loaded.isLocked("GONE"))
+    }
 }
