@@ -16,6 +16,8 @@ final class MemoOverlayController: NSObject, NSWindowDelegate {
     private var editingSpace: Space?
     /// Frame changes we make ourselves must not be saved back as "the user moved it".
     private var applyingFrame = false
+    /// The desktop whose layout the panel currently shows (#24); nil = shared layout (fullscreen Space).
+    private var placedFor: String?? = .none
 
     init(names: NameStore, memos: MemoStore) {
         self.names = names
@@ -53,7 +55,19 @@ final class MemoOverlayController: NSObject, NSWindowDelegate {
         model.title = currentSpace.map(names.displayName) ?? "전체화면"
         model.memo = currentSpace.flatMap { memos.memo(for: $0.id) }
         model.canEdit = currentSpace != nil
+        if placedFor != .some(currentSpace?.id), panel.isVisible { relocate() }
         updateVisibility()
+    }
+
+    /// New desktop, new layout (#24): fade out, move, fade back in, so the panel doesn't visibly jump
+    /// from the previous desktop's spot.
+    private func relocate() {
+        panel.alphaValue = 0
+        placePanel()
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.15
+            panel.animator().alphaValue = settings.opacity
+        }
     }
 
     private func updateVisibility() {
@@ -72,7 +86,7 @@ final class MemoOverlayController: NSObject, NSWindowDelegate {
 
     private func beginEdit() {
         guard let space = currentSpace else { return }
-        if settings.collapsed { toggleCollapse() }
+        if settings.layout(for: space.id).collapsed { toggleCollapse() }
         editingSpace = space
         model.title = MemoEditTarget.editingTitle(names.displayName(for: space))
         model.draft = model.memo ?? ""
@@ -119,19 +133,23 @@ final class MemoOverlayController: NSObject, NSWindowDelegate {
     // MARK: window
 
     private func settingsChanged() {
-        let old = settings
+        let oldLayout = settings.layout(for: currentSpace?.id)
+        let oldCorner = settings.corner
         settings = MemoSettings.load()
-        let moved = old.corner != settings.corner || (old.frame != settings.frame && !applyingFrame)
-        if moved || old.collapsed != settings.collapsed { placePanel() }
+        if !applyingFrame, oldCorner != settings.corner || oldLayout != settings.layout(for: currentSpace?.id) {
+            placePanel()
+        }
         updateVisibility()
     }
 
+    /// Applies the current desktop's layout (#24), falling back to the shared one, then the corner default.
     private func placePanel() {
         guard let screen = (NSScreen.screens.first ?? NSScreen.main)?.visibleFrame else { return }
-        var frame = settings.frame.map { MemoSettings.clamp($0, to: screen) }
+        let layout = settings.layout(for: currentSpace?.id)
+        var frame = layout.frame.map { MemoSettings.clamp($0, to: screen) }
             ?? CGRect(origin: settings.corner.origin(for: MemoSettings.defaultSize, in: screen), size: MemoSettings.defaultSize)
-        model.isCollapsed = settings.collapsed
-        if settings.collapsed {
+        model.isCollapsed = layout.collapsed
+        if layout.collapsed {
             // Keep the top edge where it was and shrink to the title bar.
             frame.origin.y = frame.maxY - MemoOverlayPanel.collapsedHeight
             frame.size.height = MemoOverlayPanel.collapsedHeight
@@ -139,13 +157,16 @@ final class MemoOverlayController: NSObject, NSWindowDelegate {
         applyingFrame = true
         panel.setFrame(frame, display: true)
         applyingFrame = false
+        placedFor = .some(currentSpace?.id)
     }
 
+    /// Collapse/expand this desktop's memo only (#24).
     private func toggleCollapse() {
-        // Remember the expanded frame before collapsing so expanding restores it.
-        if !settings.collapsed { rememberFrame() }
         var s = MemoSettings.load()
-        s.collapsed.toggle()
+        var layout = s.layout(for: currentSpace?.id)
+        if !layout.collapsed { layout.frame = panel.frame }  // expanding later restores this frame
+        layout.collapsed.toggle()
+        s.setLayout(layout, for: currentSpace?.id)
         s.save()
     }
 
@@ -153,11 +174,15 @@ final class MemoOverlayController: NSObject, NSWindowDelegate {
         panel.alphaValue = (hovering || model.isEditing) ? 1 : settings.opacity
     }
 
+    /// A drag or resize belongs to the desktop on screen (#24).
     private func rememberFrame() {
-        guard !applyingFrame, !settings.collapsed else { return }
+        guard !applyingFrame else { return }
         var s = MemoSettings.load()
-        s.frame = panel.frame
-        settings.frame = panel.frame
+        var layout = s.layout(for: currentSpace?.id)
+        guard !layout.collapsed else { return }
+        layout.frame = panel.frame
+        s.setLayout(layout, for: currentSpace?.id)
+        settings = s
         applyingFrame = true
         s.save()
         applyingFrame = false

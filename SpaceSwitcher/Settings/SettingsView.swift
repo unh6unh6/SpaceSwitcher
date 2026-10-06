@@ -30,7 +30,7 @@ final class SettingsModel: ObservableObject {
             current.directoryPath = memo.directoryPath
             if current.corner != memo.corner {
                 current.corner = memo.corner
-                current.frame = nil  // picking a corner replaces a dragged position
+                current.resetPositions()  // every desktop's memo moves to the picked corner (#24)
             }
             current.save()
         }
@@ -109,6 +109,9 @@ final class SettingsModel: ObservableObject {
 
     func removeUnusedNames() {
         names.removeUnused(keeping: Set(spaces.map(\.id)))
+        var settings = MemoSettings.load()
+        settings.pruneLayouts(keeping: Set(spaces.map(\.id)))   // memo window layouts of removed desktops (#24)
+        settings.save()
     }
 }
 

@@ -75,4 +75,62 @@ final class MemoSettingsTests: XCTestCase {
         let huge = CGRect(x: 0, y: 0, width: 3000, height: 2000)
         XCTAssertTrue(screen.contains(MemoSettings.clamp(huge, to: screen)))
     }
+
+    // MARK: per-desktop layout (#24)
+
+    private let rectA = CGRect(x: 100, y: 100, width: 300, height: 200)
+    private let rectB = CGRect(x: 900, y: 500, width: 250, height: 400)
+
+    func testDesktopWithoutItsOwnLayoutUsesTheSharedOne() {
+        var s = MemoSettings()
+        s.frame = rectA
+        s.collapsed = true
+        XCTAssertEqual(s.layout(for: "A"), MemoSettings.Layout(frame: rectA, collapsed: true))
+        XCTAssertEqual(MemoSettings().layout(for: "A"), MemoSettings.Layout(frame: nil, collapsed: false))
+    }
+
+    func testEachDesktopKeepsItsOwnFrameAndCollapse() {
+        var s = MemoSettings()
+        s.setLayout(.init(frame: rectA, collapsed: false), for: "A")
+        s.setLayout(.init(frame: rectB, collapsed: true), for: "B")
+        XCTAssertEqual(s.layout(for: "A"), .init(frame: rectA, collapsed: false))
+        XCTAssertEqual(s.layout(for: "B"), .init(frame: rectB, collapsed: true))
+        XCTAssertNil(s.frame)                       // the shared value is untouched
+    }
+
+    // A fullscreen app Space has no desktop id; it reads and writes the shared value.
+    func testNoDesktopUsesSharedValue() {
+        var s = MemoSettings()
+        s.setLayout(.init(frame: rectB, collapsed: true), for: nil)
+        XCTAssertEqual(s.frame, rectB)
+        XCTAssertTrue(s.collapsed)
+        XCTAssertEqual(s.layout(for: nil), .init(frame: rectB, collapsed: true))
+    }
+
+    func testLayoutsSurviveSaveAndLoad() {
+        var s = MemoSettings()
+        s.setLayout(.init(frame: rectA, collapsed: true), for: "A")
+        s.save(to: defaults)
+        XCTAssertEqual(MemoSettings.load(from: defaults).layout(for: "A"), .init(frame: rectA, collapsed: true))
+    }
+
+    // Picking a corner moves every desktop's memo there; collapse states stay as they were.
+    func testResetPositionsKeepsCollapse() {
+        var s = MemoSettings()
+        s.frame = rectA
+        s.setLayout(.init(frame: rectA, collapsed: true), for: "A")
+        s.setLayout(.init(frame: rectB, collapsed: false), for: "B")
+        s.resetPositions()
+        XCTAssertNil(s.frame)
+        XCTAssertEqual(s.layout(for: "A"), .init(frame: nil, collapsed: true))
+        XCTAssertEqual(s.layout(for: "B"), .init(frame: nil, collapsed: false))
+    }
+
+    func testPruneForgetsRemovedDesktops() {
+        var s = MemoSettings()
+        s.setLayout(.init(frame: rectA, collapsed: false), for: "A")
+        s.setLayout(.init(frame: rectB, collapsed: false), for: "GONE")
+        s.pruneLayouts(keeping: ["A"])
+        XCTAssertEqual(s.layouts.keys.sorted(), ["A"])
+    }
 }

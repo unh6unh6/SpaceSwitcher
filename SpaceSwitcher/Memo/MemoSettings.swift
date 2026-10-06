@@ -24,6 +24,12 @@ struct MemoSettings: Equatable {
     static let minOpacity = 0.3
     static let defaultSize = CGSize(width: 320, height: 220)
 
+    /// Where the overlay sits on one desktop (#24): its own frame and collapse state.
+    struct Layout: Codable, Equatable {
+        var frame: CGRect?
+        var collapsed = false
+    }
+
     var overlayEnabled = false
     var previewEnabled = true
     var opacity = 0.85
@@ -34,13 +40,39 @@ struct MemoSettings: Equatable {
     var hideWhenEmpty = false
     /// Memo folder; nil = `MemoStore.defaultDirectory`.
     var directoryPath: String?
+    /// Per-desktop layouts keyed by `Space.id` (#24). `frame`/`collapsed` above are the shared fallback,
+    /// used by desktops that have none yet and by fullscreen app Spaces.
+    var layouts: [String: Layout] = [:]
+
+    func layout(for spaceID: String?) -> Layout {
+        spaceID.flatMap { layouts[$0] } ?? Layout(frame: frame, collapsed: collapsed)
+    }
+
+    mutating func setLayout(_ layout: Layout, for spaceID: String?) {
+        if let spaceID {
+            layouts[spaceID] = layout
+        } else {
+            frame = layout.frame
+            collapsed = layout.collapsed
+        }
+    }
+
+    /// A corner pick in Settings moves every desktop's memo to that corner; collapse states stay.
+    mutating func resetPositions() {
+        frame = nil
+        for id in layouts.keys { layouts[id]?.frame = nil }
+    }
+
+    mutating func pruneLayouts(keeping ids: Set<String>) {
+        layouts = layouts.filter { ids.contains($0.key) }
+    }
 
     static let didChange = Notification.Name("MemoSettings.didChange")
 
     private enum Key {
         static let overlay = "memoOverlayEnabled", preview = "memoPreviewEnabled", opacity = "memoOpacity"
         static let corner = "memoCorner", frame = "memoFrame", collapsed = "memoCollapsed"
-        static let hideWhenEmpty = "memoHideWhenEmpty", directory = "memoDirectory"
+        static let hideWhenEmpty = "memoHideWhenEmpty", directory = "memoDirectory", layouts = "memoLayouts"
     }
 
     static func load(from defaults: UserDefaults = .standard) -> MemoSettings {
@@ -53,6 +85,10 @@ struct MemoSettings: Equatable {
         s.collapsed = defaults.bool(forKey: Key.collapsed)
         s.hideWhenEmpty = defaults.bool(forKey: Key.hideWhenEmpty)
         s.directoryPath = defaults.string(forKey: Key.directory)
+        if let data = defaults.data(forKey: Key.layouts),
+           let layouts = try? JSONDecoder().decode([String: Layout].self, from: data) {
+            s.layouts = layouts
+        }
         return s
     }
 
@@ -69,6 +105,7 @@ struct MemoSettings: Equatable {
         defaults.set(collapsed, forKey: Key.collapsed)
         defaults.set(hideWhenEmpty, forKey: Key.hideWhenEmpty)
         if let directoryPath { defaults.set(directoryPath, forKey: Key.directory) } else { defaults.removeObject(forKey: Key.directory) }
+        defaults.set(try? JSONEncoder().encode(layouts), forKey: Key.layouts)
         NotificationCenter.default.post(name: Self.didChange, object: nil)
     }
 
