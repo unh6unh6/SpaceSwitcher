@@ -50,6 +50,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    /// Typing in a memo is saved as you go; write what is still pending (#27).
+    func applicationWillTerminate(_ notification: Notification) {
+        guard !isRunningTests else { return }
+        memoOverlay?.flushSave()
+        switcher.flushMemo()
+    }
+
     /// #17 builds kept descriptions in names.json; they are memo files now (#18).
     private func migrateLegacyDescriptions() {
         let legacy = names.legacyDescriptions

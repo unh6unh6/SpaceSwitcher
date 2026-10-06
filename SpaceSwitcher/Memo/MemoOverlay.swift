@@ -2,7 +2,8 @@ import AppKit
 import SwiftUI
 
 /// The always-on-top memo for the current desktop (#18). One panel on every Space; its content
-/// follows the active desktop. Editing borrows the keyboard and gives it back afterwards.
+/// follows the active desktop. Always editable (#27): a click puts the caret in (borrowing the
+/// keyboard), typing is saved to the memo file as you go, Esc or a click elsewhere gives it back.
 final class MemoOverlayController: NSObject, NSWindowDelegate {
     private let names: NameStore
     private let memos: MemoStore
@@ -11,33 +12,31 @@ final class MemoOverlayController: NSObject, NSWindowDelegate {
     private let focus = FocusReturner()
     private var settings = MemoSettings.load()
     private var currentSpace: Space?
-    /// The desktop whose memo is being edited (#26). The overlay follows the active desktop, so the
-    /// current desktop can change mid-edit; saving must go here, not to `currentSpace`.
-    private var editingSpace: Space?
-    /// Unsaved edits per desktop, autosaved as typed; they reopen on return or relaunch (#26).
-    private var drafts = MemoDrafts(persistingAs: "memoDrafts")
-    /// Reading position per desktop (#25), and the desktop whose memo the panel shows now.
+    /// The desktop whose memo the editor holds, and where its typing is saved.
+    private var shownSpace: Space?
+    private var sync = MemoSync(loaded: nil)
+    private var pendingSave: DispatchWorkItem?
+    /// Reading position per desktop (#25), in source lines.
     private var scroll = MemoScrollMemory(persistingAs: "memoScrollOverlay")
-    private var scrollShownFor: String?
     /// Frame changes we make ourselves must not be saved back as "the user moved it".
     private var applyingFrame = false
     /// The desktop whose layout the panel currently shows (#24); nil = shared layout (fullscreen Space).
     private var placedFor: String?? = .none
 
+    static let saveDelay: TimeInterval = 0.5
+
     init(names: NameStore, memos: MemoStore) {
         self.names = names
         self.memos = memos
         super.init()
-        model.onEdit = { [weak self] in self?.beginEdit() }
-        model.onSave = { [weak self] text in self?.save(text) }
-        model.onCancel = { [weak self] in self?.endEdit() }
-        model.onDraftChange = { [weak self] text in
-            guard let self, let space = self.editingSpace else { return }
-            self.drafts.park(text, for: space.id)
-        }
+        model.onTextChange = { [weak self] text in self?.textChanged(text) }
+        model.onWantsFocus = { [weak self] in self?.takeFocus() }
+        model.onFocusChange = { [weak self] focused in self?.focusChanged(focused) }
+        model.onDone = { [weak self] in self?.endFocus(returnToPreviousApp: true) }
+        model.onScroll = { [weak self] line in self?.model.scrollLine = line }
+        model.onToggleLock = { [weak self] in self?.toggleLock() }
         model.onToggleCollapse = { [weak self] in self?.toggleCollapse() }
         model.onHover = { [weak self] inside in self?.applyOpacity(hovering: inside) }
-        model.onToggleTask = { [weak self] line in self?.toggleTask(line) }
 
         let workspace = NSWorkspace.shared.notificationCenter
         workspace.addObserver(forName: NSWorkspace.activeSpaceDidChangeNotification, object: nil, queue: .main) { [weak self] _ in
@@ -49,6 +48,11 @@ final class MemoOverlayController: NSObject, NSWindowDelegate {
         NotificationCenter.default.addObserver(forName: MemoSettings.didChange, object: nil, queue: .main) { [weak self] _ in
             self?.settingsChanged()
         }
+        // A click in another app takes the keyboard back; stop editing quietly.
+        NotificationCenter.default.addObserver(forName: NSApplication.didResignActiveNotification, object: nil, queue: .main) { [weak self] _ in
+            guard let self, model.isFocused else { return }
+            endFocus(returnToPreviousApp: false)
+        }
         refresh()
     }
 
@@ -56,41 +60,45 @@ final class MemoOverlayController: NSObject, NSWindowDelegate {
 
     private func refresh() {
         let spaces = SpaceProvider.spaces()
-        currentSpace = spaces.first(where: \.isCurrent)
-        if let editingSpace {
-            if editingSpace.id == currentSpace?.id {
-                // Same desktop (e.g. the file changed on disk): never yank text out from under the editor.
-                model.title = MemoEditTarget.editingTitle(names.displayName(for: editingSpace))
-                return
-            }
-            // Moved away mid-edit (#26): park the text with its desktop and show this one normally.
-            drafts.park(model.draft, for: editingSpace.id)
-            self.editingSpace = nil
-            model.isEditing = false
-            focus.release()
+        let current = spaces.first(where: \.isCurrent)
+        let moved = current?.id != shownSpace?.id
+        if moved {
+            // Leaving a desktop mid-typing: its text is saved there, the keyboard goes back.
+            flushSave()
+            if model.isFocused { endFocus(returnToPreviousApp: false) }
+            scroll.set(model.scrollLine, for: shownSpace?.id)
         }
-        let ids = Set(spaces.map(\.id))
-        if !spaces.isEmpty {
-            scroll.prune(keeping: ids)
-            for text in drafts.takeOrphans(keeping: ids) { keepUnsavedText(text) }
-        }
-        scroll.set(model.scrollLine, for: scrollShownFor)
-        model.title = currentSpace.map(names.displayName) ?? "전체화면"
-        model.memo = currentSpace.flatMap { memos.memo(for: $0.id) }
-        model.canEdit = currentSpace != nil
-        scrollShownFor = currentSpace?.id
-        model.scrollKey = currentSpace?.id ?? ""
-        model.scrollLine = scroll.position(for: scrollShownFor,
-                                           blockCount: model.memo.map { MarkdownBlocks.parse($0).count } ?? 0)
-        if placedFor != .some(currentSpace?.id), panel.isVisible { relocate() }
-        if let space = currentSpace, let draft = drafts.draft(for: space.id) {
-            if draft == (model.memo ?? "") {
-                drafts.discard(for: space.id)   // nothing was changed
-            } else {
-                resumeEdit(space, draft: draft)
+        currentSpace = current
+        if !spaces.isEmpty { scroll.prune(keeping: Set(spaces.map(\.id))) }
+        model.title = current.map(names.displayName) ?? "전체화면"
+        model.canEdit = current != nil
+        model.isLocked = settings.isLocked(current?.id)
+
+        let fileText = current.flatMap { memos.memo(for: $0.id) }
+        if moved || shownSpace == nil {
+            shownSpace = current
+            sync = MemoSync(loaded: fileText)
+            show(fileText ?? "", scrollLine: scroll.position(for: current?.id,
+                                                            blockCount: MarkdownLiveStyle.lineCount(fileText ?? "")))
+        } else {
+            shownSpace = current   // fresh name/index
+            switch sync.incoming(fileText, editorText: model.text) {
+            case .ignore: break
+            case .replace:
+                sync = MemoSync(loaded: fileText)
+                show(fileText ?? "", scrollLine: model.scrollLine)
+            case .keepLocal:
+                scheduleSave()
             }
         }
+        if placedFor != .some(current?.id), panel.isVisible { relocate() }
         updateVisibility()
+    }
+
+    private func show(_ text: String, scrollLine: Int) {
+        model.text = text
+        model.scrollLine = scrollLine
+        model.version += 1
     }
 
     /// New desktop, new layout (#24): fade out, move, fade back in, so the panel doesn't visibly jump
@@ -105,8 +113,8 @@ final class MemoOverlayController: NSObject, NSWindowDelegate {
     }
 
     private func updateVisibility() {
-        let empty = model.memo == nil
-        let shouldShow = settings.overlayEnabled && !(settings.hideWhenEmpty && empty && !model.isEditing)
+        let empty = model.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        let shouldShow = settings.overlayEnabled && !(settings.hideWhenEmpty && empty && !model.isFocused)
         if shouldShow {
             if !panel.isVisible { placePanel() }
             applyOpacity(hovering: false)
@@ -116,57 +124,57 @@ final class MemoOverlayController: NSObject, NSWindowDelegate {
         }
     }
 
-    // MARK: editing
+    // MARK: editing (#27)
 
-    private func beginEdit() {
-        guard let space = currentSpace else { return }
-        if settings.layout(for: space.id).collapsed { toggleCollapse() }
-        resumeEdit(space, draft: model.memo ?? "")
+    private func textChanged(_ text: String) {
+        model.text = text
+        scheduleSave()
     }
 
-    private func resumeEdit(_ space: Space, draft: String) {
-        editingSpace = space
-        model.title = MemoEditTarget.editingTitle(names.displayName(for: space))
-        model.draft = draft
-        model.isEditing = true
-        panel.alphaValue = 1
+    private func scheduleSave() {
+        pendingSave?.cancel()
+        let work = DispatchWorkItem { [weak self] in self?.flushSave() }
+        pendingSave = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.saveDelay, execute: work)
+    }
+
+    /// Writes unsaved typing to the shown desktop's file now. Also called when the app quits.
+    func flushSave() {
+        pendingSave?.cancel()
+        pendingSave = nil
+        guard let space = shownSpace, sync.needsSave(model.text) else { return }
+        sync.didSave(model.text)
+        memos.setMemo(model.text, for: space.id, desktopName: names.displayName(for: space))
+    }
+
+    private func takeFocus() {
+        guard model.canEdit, !model.isLocked else { return }
         focus.take(for: panel)
     }
 
-    private func save(_ text: String) {
-        switch MemoEditTarget.resolve(editing: editingSpace, in: SpaceProvider.spaces()) {
-        case .save(let space):
-            memos.setMemo(text, for: space.id, desktopName: names.displayName(for: space))
-        case .gone:
-            keepUnsavedText(text)
-        case .nothing:
-            break
-        }
-        endEdit()
+    private func focusChanged(_ focused: Bool) {
+        model.isFocused = focused
+        if !focused { flushSave() }
+        applyOpacity(hovering: false)
+        updateVisibility()
     }
 
-    /// The edited desktop vanished mid-edit: don't write it anywhere else, hand the text back instead.
-    private func keepUnsavedText(_ text: String) {
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(text, forType: .string)
-        let alert = NSAlert()
-        alert.messageText = "편집하던 데스크탑이 없어져 메모를 저장하지 못했어요"
-        alert.informativeText = "작성한 내용은 클립보드에 복사해 두었어요."
-        alert.runModal()
+    /// Esc (back to the app the user was in) or a click elsewhere / desktop change (just let go).
+    private func endFocus(returnToPreviousApp: Bool) {
+        flushSave()
+        panel.makeFirstResponder(nil)
+        model.isFocused = false
+        if returnToPreviousApp { focus.giveBack() } else { focus.release() }
+        applyOpacity(hovering: false)
+        updateVisibility()
     }
 
-    /// Checkbox click (#19): flip that line in the file without entering edit mode.
-    private func toggleTask(_ line: Int) {
-        guard let space = currentSpace, let memo = memos.memo(for: space.id) else { return }
-        memos.setMemo(MarkdownBlocks.toggleTask(in: memo, line: line), for: space.id, desktopName: names.displayName(for: space))
-    }
-
-    private func endEdit() {
-        if let editingSpace { drafts.discard(for: editingSpace.id) }
-        editingSpace = nil
-        model.isEditing = false
-        focus.giveBack()
-        refresh()
+    private func toggleLock() {
+        guard let space = currentSpace else { return }
+        if model.isFocused { endFocus(returnToPreviousApp: true) }
+        var s = MemoSettings.load()
+        s.setLocked(!s.isLocked(space.id), for: space.id)
+        s.save()
     }
 
     // MARK: window
@@ -175,6 +183,7 @@ final class MemoOverlayController: NSObject, NSWindowDelegate {
         let oldLayout = settings.layout(for: currentSpace?.id)
         let oldCorner = settings.corner
         settings = MemoSettings.load()
+        model.isLocked = settings.isLocked(currentSpace?.id)
         if !applyingFrame, oldCorner != settings.corner || oldLayout != settings.layout(for: currentSpace?.id) {
             placePanel()
         }
@@ -201,6 +210,7 @@ final class MemoOverlayController: NSObject, NSWindowDelegate {
 
     /// Collapse/expand this desktop's memo only (#24).
     private func toggleCollapse() {
+        if model.isFocused { endFocus(returnToPreviousApp: true) }
         var s = MemoSettings.load()
         var layout = s.layout(for: currentSpace?.id)
         if !layout.collapsed { layout.frame = panel.frame }  // expanding later restores this frame
@@ -210,7 +220,7 @@ final class MemoOverlayController: NSObject, NSWindowDelegate {
     }
 
     private func applyOpacity(hovering: Bool) {
-        panel.alphaValue = (hovering || model.isEditing) ? 1 : settings.opacity
+        panel.alphaValue = (hovering || model.isFocused) ? 1 : settings.opacity
     }
 
     /// A drag or resize belongs to the desktop on screen (#24).
@@ -233,25 +243,24 @@ final class MemoOverlayController: NSObject, NSWindowDelegate {
 
 final class MemoOverlayModel: ObservableObject {
     @Published var title = ""
-    @Published var memo: String?
+    /// The memo source in the editor. The controller bumps `version` to push a new text in.
+    @Published var text = ""
+    @Published var version = 0
     @Published var canEdit = true
-    @Published var isEditing = false
+    @Published var isLocked = false
+    @Published var isFocused = false
     @Published var isCollapsed = false
-    /// First visible block of the memo; mouse scrolling updates it, desktop changes restore it (#25).
+    /// First visible source line (#25).
     @Published var scrollLine = 0
-    /// Whose memo is shown; a new value gives a fresh scroll view opened at `scrollLine`.
-    @Published var scrollKey = ""
-    @Published var draft = "" {
-        didSet { if draft != oldValue { onDraftChange(draft) } }
-    }
 
-    var onEdit: () -> Void = {}
-    var onSave: (String) -> Void = { _ in }
-    var onCancel: () -> Void = {}
-    var onDraftChange: (String) -> Void = { _ in }
+    var onTextChange: (String) -> Void = { _ in }
+    var onWantsFocus: () -> Void = {}
+    var onFocusChange: (Bool) -> Void = { _ in }
+    var onDone: () -> Void = {}
+    var onScroll: (Int) -> Void = { _ in }
+    var onToggleLock: () -> Void = {}
     var onToggleCollapse: () -> Void = {}
     var onHover: (Bool) -> Void = { _ in }
-    var onToggleTask: (Int) -> Void = { _ in }
 }
 
 /// Titled-but-chromeless panel: free to drag (by its background) and resize, never activates the app
@@ -303,17 +312,12 @@ final class MemoOverlayPanel: NSPanel {
 
 struct MemoOverlayView: View {
     @ObservedObject var model: MemoOverlayModel
-    @FocusState private var editorFocused: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             header
             if !model.isCollapsed {
-                if model.isEditing {
-                    editor
-                } else {
-                    content
-                }
+                content
             }
         }
         .padding(.horizontal, 12)
@@ -329,10 +333,13 @@ struct MemoOverlayView: View {
                 .font(.headline)
                 .lineLimit(1)
             Spacer()
-            if model.canEdit && !model.isEditing {
-                Button(action: model.onEdit) { Image(systemName: "pencil") }
-                    .buttonStyle(.borderless)
-                    .help("메모 편집 (더블클릭도 가능)")
+            if model.canEdit {
+                Button(action: model.onToggleLock) {
+                    Image(systemName: model.isLocked ? "lock.fill" : "lock.open")
+                        .foregroundStyle(model.isLocked ? Color.primary : Color.secondary)
+                }
+                .buttonStyle(.borderless)
+                .help(model.isLocked ? "읽기 전용 해제" : "읽기 전용으로 잠그기")
             }
             Button(action: model.onToggleCollapse) {
                 Image(systemName: model.isCollapsed ? "chevron.down" : "chevron.up")
@@ -343,57 +350,24 @@ struct MemoOverlayView: View {
         .frame(height: 18)
     }
 
-    private var content: some View {
-        ScrollViewReader { proxy in
-        ScrollView {
-            Group {
-                if let memo = model.memo {
-                    MarkdownView(text: memo, onToggleTask: model.onToggleTask)
-                        .textSelection(.enabled)
-                } else {
-                    Text(model.canEdit ? "메모 없음 · 클릭해 추가" : "전체화면 앱에는 메모를 둘 수 없어요")
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .topLeading)
-        }
-        .scrollPosition(id: Binding(get: { model.scrollLine },
-                                    set: { if let line = $0 { model.scrollLine = line } }),
-                        anchor: .top)
-        .onAppear {
-            let line = model.scrollLine
-            DispatchQueue.main.async { proxy.scrollTo(line, anchor: .top) }
-        }
-        }
-        .id(model.scrollKey)
-        .contentShape(Rectangle())
-        .onTapGesture(count: 2) { model.onEdit() }
-        .onTapGesture { if model.memo == nil { model.onEdit() } }
-    }
+    private var isEmpty: Bool { model.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
 
-    private var editor: some View {
-        VStack(alignment: .trailing, spacing: 6) {
-            TextEditor(text: $model.draft)
-                .font(.system(.callout, design: .monospaced))
-                .scrollContentBackground(.hidden)
-                .background(RoundedRectangle(cornerRadius: 6).fill(Color.primary.opacity(0.06)))
-                .focused($editorFocused)
-                .onAppear { editorFocused = true }
-                .onKeyPress(.return, phases: .down) { press in
-                    guard press.modifiers.contains(.command) else { return .ignored }
-                    model.onSave(model.draft)
-                    return .handled
-                }
-                .onKeyPress(.escape) {
-                    model.onCancel()
-                    return .handled
-                }
-            HStack {
-                Text("⌘Enter 저장 · Esc 취소").font(.caption2).foregroundStyle(.secondary)
-                Spacer()
-                Button("취소", action: model.onCancel)
-                Button("저장") { model.onSave(model.draft) }   // no Enter shortcut: Enter is a newline here
+    private var content: some View {
+        ZStack(alignment: .topLeading) {
+            LiveMarkdownEditor(text: model.text, version: model.version,
+                               editable: model.canEdit && !model.isLocked,
+                               canToggleTasks: model.canEdit && !model.isLocked,
+                               scrollLine: model.scrollLine,
+                               onTextChange: model.onTextChange,
+                               onWantsFocus: model.onWantsFocus,
+                               onFocusChange: model.onFocusChange,
+                               onDone: model.onDone,
+                               onScroll: model.onScroll)
+            if isEmpty && !model.isFocused {
+                Text(!model.canEdit ? "전체화면 앱에는 메모를 둘 수 없어요" : model.isLocked ? "메모 없음" : "메모 없음 · 클릭해 입력")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .allowsHitTesting(false)
             }
         }
     }

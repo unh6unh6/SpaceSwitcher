@@ -29,6 +29,10 @@ final class SwitcherController {
     /// Desktops shown in the panel; rows index into this.
     private var spaces: [Space] = []
     private var clickMonitor: Any?
+    /// The desktop being D-edited, what its file holds, and the pending autosave (#27).
+    private var memoSpace: Space?
+    private var memoSync = MemoSync(loaded: nil)
+    private var pendingMemoSave: DispatchWorkItem?
     private let focus = FocusReturner()
 
     init(names: NameStore, memos: MemoStore) {
@@ -53,8 +57,8 @@ final class SwitcherController {
         }
         model.onCommitRename = { [weak self] text in self?.commitRename(text) }
         model.onCancelRename = { [weak self] in self?.sendFromMain(.endRename) }
-        model.onCommitMemo = { [weak self] text in self?.commitMemo(text) }
-        model.onCancelMemo = { [weak self] in self?.sendFromMain(.endDescribe) }
+        model.onMemoChange = { [weak self] text in self?.memoChanged(text) }
+        model.onMemoDone = { [weak self] in self?.finishMemo() }
         model.onToggleTask = { [weak self] line in self?.toggleTask(line) }
 
         recordCurrentSpace()
@@ -152,8 +156,19 @@ final class SwitcherController {
         case .describe(let row):
             guard spaces.indices.contains(row) else { return }
             model.selection = row
-            model.memoDraft = memos.memo(for: spaces[row].id) ?? ""
+            let space = spaces[row]
+            if MemoSettings.load().isLocked(space.id) {   // read-only memo (#27)
+                NSSound.beep()
+                sendFromMain(.endDescribe)
+                return
+            }
+            let memo = memos.memo(for: space.id)
+            memoSpace = space
+            memoSync = MemoSync(loaded: memo)
+            model.memoEditText = memo ?? ""
+            model.memoEditVersion = (memo ?? "").hashValue
             model.editingMemoRow = row
+            model.memoFocusRequest += 1
             takeKeyboard()
             panel.recenter()
         case .scrollMemo(let step):
@@ -169,14 +184,32 @@ final class SwitcherController {
     private func toggleTask(_ line: Int) {
         guard spaces.indices.contains(model.selection) else { return }
         let space = spaces[model.selection]
-        guard let memo = memos.memo(for: space.id) else { return }
+        guard !MemoSettings.load().isLocked(space.id), let memo = memos.memo(for: space.id) else { return }
         memos.setMemo(MarkdownBlocks.toggleTask(in: memo, line: line), for: space.id, desktopName: names.displayName(for: space))
         reloadRows()
     }
 
-    private func commitMemo(_ text: String) {
-        guard let row = model.editingMemoRow, spaces.indices.contains(row) else { return }
-        memos.setMemo(text, for: spaces[row].id, desktopName: names.displayName(for: spaces[row]))
+    // MARK: memo editing (#27): saved as you type, Esc / ⌘Enter / leaving ends it
+
+    private func memoChanged(_ text: String) {
+        model.memoEditText = text
+        pendingMemoSave?.cancel()
+        let work = DispatchWorkItem { [weak self] in self?.flushMemo() }
+        pendingMemoSave = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + MemoOverlayController.saveDelay, execute: work)
+    }
+
+    /// Writes unsaved typing to the edited desktop's file now. Also called when the app quits.
+    func flushMemo() {
+        pendingMemoSave?.cancel()
+        pendingMemoSave = nil
+        guard let space = memoSpace, model.editingMemoRow != nil, memoSync.needsSave(model.memoEditText) else { return }
+        memoSync.didSave(model.memoEditText)
+        memos.setMemo(model.memoEditText, for: space.id, desktopName: names.displayName(for: space))
+    }
+
+    private func finishMemo() {
+        flushMemo()
         reloadRows()
         sendFromMain(.endDescribe)
     }
@@ -190,6 +223,8 @@ final class SwitcherController {
 
     /// Save and cancel of both inline editors land here; the panel stays open in Sticky (#7, #17).
     private func finishEditUI() {
+        flushMemo()
+        reloadRows()
         model.renamingRow = nil
         model.editingMemoRow = nil
         returnFocus()
@@ -198,6 +233,7 @@ final class SwitcherController {
 
     /// `then` runs once the panel is really off screen, so a following Space switch doesn't animate it (#8).
     private func close(then: @escaping () -> Void = {}) {
+        flushMemo()
         model.renamingRow = nil
         model.editingMemoRow = nil
         stopClickMonitor()
@@ -213,11 +249,13 @@ final class SwitcherController {
     private static let iconLimit = 5
 
     private func reloadRows() {
+        let lockedMemos = MemoSettings.load().locked
         let appsBySpace = SpaceApps.showIcons() ? SpaceAppsProvider.current() : nil
         model.rows = spaces.map { space in
             var row = SwitcherViewModel.Row(id: space.id, number: space.index, title: names.displayName(for: space),
                                             isNamed: names.name(for: space.id) != nil, isCurrent: space.isCurrent)
             row.memo = memos.memo(for: space.id)
+            row.isLocked = lockedMemos.contains(space.id)
             if let appsBySpace {
                 let shown = SpaceApps.visible(appsBySpace[space.managedID] ?? [], limit: Self.iconLimit)
                 row.apps = shown.apps

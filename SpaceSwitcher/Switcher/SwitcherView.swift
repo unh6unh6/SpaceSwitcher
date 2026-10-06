@@ -13,6 +13,8 @@ final class SwitcherViewModel: ObservableObject {
         var overflow = 0
         /// This desktop's memo file (#18).
         var memo: String? = nil
+        /// Read-only memo (#27).
+        var isLocked = false
     }
 
     @Published var rows: [Row] = []
@@ -24,9 +26,13 @@ final class SwitcherViewModel: ObservableObject {
     /// Memo preview beside the list (#20): on in Settings and at least one desktop has a memo.
     @Published var showsMemoPreview = false
     @Published var editingMemoRow: Int?
-    @Published var memoDraft = ""
-    /// First visible block of the preview. Shift+↑↓ and mouse scrolling move it; remembered per desktop,
-    /// across restarts (#25).
+    /// While D-editing (#27): the editor's text, and the version it was opened with (so typing is never
+    /// replaced by a reload); bump `memoFocusRequest` to put the caret in.
+    var memoEditText = ""
+    @Published var memoEditVersion = 0
+    @Published var memoFocusRequest = 0
+    /// First visible source line of the preview. Shift+↑↓ and mouse scrolling move it; remembered per
+    /// desktop, across restarts (#25).
     @Published var memoScrollLine = 0 {
         didSet { memoScroll.set(memoScrollLine, for: selectedRow?.id) }
     }
@@ -37,26 +43,26 @@ final class SwitcherViewModel: ObservableObject {
 
     var selectedRow: Row? { rows.indices.contains(selection) ? rows[selection] : nil }
 
-    /// Blocks (≈ lines) per Shift+↑↓ press.
+    /// Lines per Shift+↑↓ press.
     static let scrollStep = 4
+
+    private var selectedLineCount: Int { MarkdownLiveStyle.lineCount(selectedRow?.memo ?? "") }
 
     /// Back to where the selected desktop's memo was being read.
     func restoreMemoScroll() {
-        let blockCount = selectedRow?.memo.map { MarkdownBlocks.parse($0).count } ?? 0
-        memoScrollLine = memoScroll.position(for: selectedRow?.id, blockCount: blockCount)
+        memoScrollLine = memoScroll.position(for: selectedRow?.id, blockCount: selectedLineCount)
     }
 
     func scrollMemo(by steps: Int) {
-        let blockCount = selectedRow?.memo.map { MarkdownBlocks.parse($0).count } ?? 0
-        memoScrollLine = min(max(0, memoScrollLine + steps * Self.scrollStep), max(0, blockCount - 1))
+        memoScrollLine = min(max(0, memoScrollLine + steps * Self.scrollStep), max(0, selectedLineCount - 1))
     }
 
     var onClick: (Int) -> Void = { _ in }
     var onDoubleClick: (Int) -> Void = { _ in }
     var onCommitRename: (String) -> Void = { _ in }
     var onCancelRename: () -> Void = {}
-    var onCommitMemo: (String) -> Void = { _ in }
-    var onCancelMemo: () -> Void = {}
+    var onMemoChange: (String) -> Void = { _ in }
+    var onMemoDone: () -> Void = {}
     var onToggleTask: (Int) -> Void = { _ in }
 }
 
@@ -100,7 +106,7 @@ struct SwitcherView: View {
             }
             if showsPreview { Spacer(minLength: 0) }
             Text(model.editingMemoRow != nil
-                 ? "⌘Enter 저장 · Enter 줄바꿈 · Esc 취소"
+                 ? "자동 저장 · Esc 완료"
                  : "↑↓ 이동 · Enter 전환 · 1–9 바로 · R 이름 · D 메모" + (showsPreview ? " · ⇧↑↓ 스크롤" : "") + " · Esc")
                 .font(.caption2)
                 .foregroundStyle(.secondary)
@@ -109,45 +115,32 @@ struct SwitcherView: View {
         }
     }
 
-    /// The selected desktop's memo, scrollable; or its editor while editing (#20).
+    /// The selected desktop's memo, scrollable; D makes it editable in place (#20, #27).
     private var memoPreview: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(model.selectedRow?.title ?? "")
-                .font(.headline)
-                .lineLimit(1)
-            if model.editingMemoRow != nil {
-                TextEditor(text: $model.memoDraft)
-                    .font(.system(.callout, design: .monospaced))
-                    .scrollContentBackground(.hidden)
-                    .background(RoundedRectangle(cornerRadius: 6).fill(Color.primary.opacity(0.06)))
-                    .focused($editorFocused)
-                    .onAppear { editorFocused = true }
-                    .onKeyPress(.return, phases: .down) { press in
-                        guard press.modifiers.contains(.command) else { return .ignored }  // plain Enter = newline
-                        model.onCommitMemo(model.memoDraft)
-                        return .handled
-                    }
-                    .onKeyPress(.escape) {
-                        model.onCancelMemo()
-                        return .handled
-                    }
-            } else if let row = model.selectedRow, let memo = row.memo {
-                ScrollViewReader { proxy in
-                    ScrollView {
-                        MarkdownView(text: memo, onToggleTask: model.onToggleTask)   // block ids = scroll targets
-                    }
-                    // Two-way: mouse scrolling updates the line, Shift+↑↓ / restoring sets it (#25).
-                    .scrollPosition(id: Binding(get: { model.memoScrollLine },
-                                                set: { if let line = $0 { model.memoScrollLine = line } }),
-                                    anchor: .top)
-                    .onAppear {
-                        let line = model.memoScrollLine
-                        DispatchQueue.main.async { proxy.scrollTo(line, anchor: .top) }
-                    }
+            HStack(spacing: 6) {
+                Text(model.selectedRow?.title ?? "")
+                    .font(.headline)
+                    .lineLimit(1)
+                if model.selectedRow?.isLocked == true {
+                    Image(systemName: "lock.fill").font(.caption).foregroundStyle(.secondary).help("읽기 전용")
                 }
-                .id(row.id)   // a fresh scroll view per desktop, opened at its remembered block
+            }
+            if let row = model.selectedRow, row.memo != nil || model.editingMemoRow != nil {
+                let editing = model.editingMemoRow != nil
+                LiveMarkdownEditor(text: editing ? model.memoEditText : (row.memo ?? ""),
+                                   version: editing ? model.memoEditVersion : (row.memo ?? "").hashValue,
+                                   editable: editing,
+                                   canToggleTasks: !row.isLocked,
+                                   scrollLine: model.memoScrollLine,
+                                   focusRequest: model.memoFocusRequest,
+                                   onTextChange: model.onMemoChange,
+                                   onDone: model.onMemoDone,
+                                   onScroll: { model.memoScrollLine = $0 },
+                                   onToggleTask: model.onToggleTask)
+                    .id(row.id)   // a fresh editor per desktop, opened at its remembered line
             } else {
-                Text("메모 없음 · D로 작성")
+                Text(model.selectedRow?.isLocked == true ? "메모 없음" : "메모 없음 · D로 작성")
                     .font(.callout)
                     .foregroundStyle(.tertiary)
                 Spacer()
