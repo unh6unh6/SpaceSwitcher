@@ -80,18 +80,18 @@ final class MarkdownLiveStyleTests: XCTestCase {
         assertRuns("a ``b`c`` d", [("``", .syntax), ("b`c", .code), ("``", .syntax)])
     }
 
-    // Text right after the opening ``` (the "language") stays visible; only the backticks hide.
-    func testFenceInfoTextStaysVisible() {
+    // Text right after the opening ``` (the "language") is its own run, hidden off the caret line.
+    func testFenceInfoText() {
         let r = runs("```메모\nlet x\n```")
         XCTAssertEqual(r.map(\.0), ["```", "메모", "let x", "```"])
         XCTAssertEqual(r.map(\.1), [.fence, .fenceInfo, .codeBlock, .fence])
     }
 
-    // Only a line of bare backticks closes a block; "```글자" inside one is code, shown as is.
-    func testBackticksWithTextDoNotCloseABlock() {
-        let r = runs("```\na\n```글자\nb\n```")
-        XCTAssertEqual(r.map(\.0), ["```", "a", "```글자", "b", "```"])
-        XCTAssertEqual(r.map(\.1), [.fence, .codeBlock, .codeBlock, .codeBlock, .fence])
+    // Any ``` line closes the block (decided 2026-10-07: keep the original behavior).
+    func testBackticksWithTextCloseABlock() {
+        let r = runs("```\na\n```글자\nb")
+        XCTAssertEqual(r.map(\.0), ["```", "a", "```", "글자"])
+        XCTAssertEqual(r.map(\.1), [.fence, .codeBlock, .fence, .fenceInfo])
     }
 
     func testLineNumbers() {

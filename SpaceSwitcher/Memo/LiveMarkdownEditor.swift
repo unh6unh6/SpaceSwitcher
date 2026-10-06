@@ -422,7 +422,12 @@ enum LiveStyleApplier {
                 storage.addAttribute(.liveHidden, value: true, range: r)   // an empty band above/below the code
             }
         case .fenceInfo:
-            storage.addAttributes([.font: codeFont, .foregroundColor: NSColor.secondaryLabelColor], range: r)
+            storage.addAttribute(.font, value: codeFont, range: r)
+            if raw {
+                storage.addAttribute(.foregroundColor, value: LiveStyleApplier.markerColor, range: r)
+            } else {
+                storage.addAttribute(.liveHidden, value: true, range: r)   // as in Markdown: the info string isn't shown
+            }
         case .codeBlock:
             let line = (storage.string as NSString).lineRange(for: r)
             storage.addAttributes([.font: codeFont, .liveBlock: Block.code], range: line)

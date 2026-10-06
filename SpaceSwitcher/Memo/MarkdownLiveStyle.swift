@@ -16,8 +16,8 @@ struct LiveStyleRun: Equatable {
         /// Text of a checked task.
         case done
         case quote
-        /// The backticks of a ``` line, the text after an opening ``` (its "language"), and the lines
-        /// between the fences.
+        /// The backticks of a ``` line, the text after them (an opening fence's "language"; hidden
+        /// like the backticks away from the caret), and the lines between the fences.
         case fence, fenceInfo, codeBlock
         /// `---`: drawn as a line away from the caret line.
         case rule
@@ -50,9 +50,10 @@ enum MarkdownLiveStyle {
             let tickStart = start + (s.substring(with: lineRange) as NSString)
                 .range(of: "`").location.clampedToZero
             if fenceTicks > 0 {
-                // Only bare backticks (at least as many) close; anything else is code.
-                if ticks >= fenceTicks, ticks == trimmed.count {
+                // Any ``` line closes; text after it is hidden like an opening fence's info.
+                if ticks >= 3 {
                     add(tickStart, ticks, .fence)
+                    add(tickStart + ticks, end - tickStart - ticks, .fenceInfo)
                     fenceTicks = 0
                 } else {
                     add(start, end - start, .codeBlock)
