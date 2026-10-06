@@ -66,7 +66,7 @@ final class LiveMarkdownRenderTests: XCTestCase {
     }
 
     func testCodeBlockDark() {
-        let code = "앞\n```swift\nlet x = 1\nprint(x)\n```\n뒤"
+        let code = "앞\n```붙여쓴글자\nlet x = 1\n```이것도글자\n```\n뒤"
         for (name, caret) in [("code-reader", nil), ("code-caret-in", 12), ("code-caret-after", (code as NSString).length)] as [(String, Int?)] {
             let (window, view) = makeEditor(code)
             window.appearance = NSAppearance(named: .vibrantDark)

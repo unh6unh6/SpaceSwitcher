@@ -163,19 +163,15 @@ final class MemoSettingsTests: XCTestCase {
     func testBackgroundsDefaultToTheCurrentLook() {
         let s = MemoSettings.load(from: defaults)
         XCTAssertEqual(s.overlayBackground, .standard)
-        XCTAssertEqual(s.previewBackground, .standard)
         XCTAssertNil(MemoSettings.Background.standard.rgb)       // the translucent HUD material
         XCTAssertNil(MemoSettings.Background.standard.isDark)    // text follows the system
     }
 
-    func testBackgroundsAreSetSeparatelyAndSaved() {
+    func testBackgroundIsSaved() {
         var s = MemoSettings()
         s.overlayBackground = .yellow
-        s.previewBackground = .black
         s.save(to: defaults)
-        let loaded = MemoSettings.load(from: defaults)
-        XCTAssertEqual(loaded.overlayBackground, .yellow)
-        XCTAssertEqual(loaded.previewBackground, .black)
+        XCTAssertEqual(MemoSettings.load(from: defaults).overlayBackground, .yellow)
     }
 
     // Light paper gets dark text, black gets light text.

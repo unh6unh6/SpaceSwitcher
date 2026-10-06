@@ -1,7 +1,7 @@
 import AppKit
 
-/// Applies a `MemoSettings.Background` to a panel built on an `NSVisualEffectView` (the memo overlay
-/// and the Option+E switcher): the HUD material for `standard`, a solid color otherwise, with the
+/// Applies a `MemoSettings.Background` to a panel built on an `NSVisualEffectView` (the memo
+/// overlay): the HUD material for `standard`, a solid color otherwise, with the
 /// window appearance set so text stays readable on it.
 enum PanelBackground {
     private static let tintID = NSUserInterfaceItemIdentifier("SpaceSwitcher.backgroundTint")

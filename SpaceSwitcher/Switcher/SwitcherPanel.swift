@@ -4,7 +4,6 @@ import SwiftUI
 /// Floating, non-activating panel centered on the main display (SPEC §3.2).
 final class SwitcherPanel: NSPanel {
     private let hosting: NSHostingView<SwitcherView>
-    private let effect = NSVisualEffectView()
 
     init(model: SwitcherViewModel) {
         hosting = NSHostingView(rootView: SwitcherView(model: model))
@@ -19,6 +18,7 @@ final class SwitcherPanel: NSPanel {
         backgroundColor = .clear
         hasShadow = true
 
+        let effect = NSVisualEffectView()
         effect.material = .hudWindow
         effect.blendingMode = .behindWindow
         effect.state = .active
@@ -46,7 +46,6 @@ final class SwitcherPanel: NSPanel {
     }
 
     func present() {
-        PanelBackground.apply(MemoSettings.load().previewBackground, to: effect, in: self)
         hosting.layoutSubtreeIfNeeded()
         let size = hosting.fittingSize
         // screens[0] is the display with the menu bar, i.e. the "main display" in System Settings.

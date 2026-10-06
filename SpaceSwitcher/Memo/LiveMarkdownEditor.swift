@@ -421,6 +421,8 @@ enum LiveStyleApplier {
             } else {
                 storage.addAttribute(.liveHidden, value: true, range: r)   // an empty band above/below the code
             }
+        case .fenceInfo:
+            storage.addAttributes([.font: codeFont, .foregroundColor: NSColor.secondaryLabelColor], range: r)
         case .codeBlock:
             let line = (storage.string as NSString).lineRange(for: r)
             storage.addAttributes([.font: codeFont, .liveBlock: Block.code], range: line)

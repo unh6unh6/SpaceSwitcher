@@ -24,7 +24,7 @@ struct MemoSettings: Equatable {
     static let minOpacity = 0.3
     static let defaultSize = CGSize(width: 320, height: 220)
 
-    /// Background of the memo overlay / the Option+E panel. `standard` is the translucent HUD look.
+    /// Background of the memo overlay. `standard` is the translucent HUD look.
     enum Background: String, CaseIterable {
         case standard, white, black, yellow
 
@@ -72,7 +72,6 @@ struct MemoSettings: Equatable {
     var collapsed = false
     var hideWhenEmpty = false
     var overlayBackground = Background.standard
-    var previewBackground = Background.standard
     /// Memo folder; nil = `MemoStore.defaultDirectory`.
     var directoryPath: String?
     /// Per-desktop layouts keyed by `Space.id` (#24). `frame`/`collapsed` above are the shared fallback,
@@ -120,7 +119,7 @@ struct MemoSettings: Equatable {
         static let corner = "memoCorner", frame = "memoFrame", collapsed = "memoCollapsed"
         static let hideWhenEmpty = "memoHideWhenEmpty", directory = "memoDirectory", layouts = "memoLayouts",
                          locked = "memoLocked"
-        static let overlayBackground = "memoOverlayBackground", previewBackground = "switcherBackground"
+        static let overlayBackground = "memoOverlayBackground"
     }
 
     static func load(from defaults: UserDefaults = .standard) -> MemoSettings {
@@ -139,7 +138,6 @@ struct MemoSettings: Equatable {
         }
         s.locked = Set(defaults.stringArray(forKey: Key.locked) ?? [])
         s.overlayBackground = defaults.string(forKey: Key.overlayBackground).flatMap(Background.init) ?? .standard
-        s.previewBackground = defaults.string(forKey: Key.previewBackground).flatMap(Background.init) ?? .standard
         return s
     }
 
@@ -159,7 +157,6 @@ struct MemoSettings: Equatable {
         defaults.set(try? JSONEncoder().encode(layouts), forKey: Key.layouts)
         defaults.set(locked.sorted(), forKey: Key.locked)
         defaults.set(overlayBackground.rawValue, forKey: Key.overlayBackground)
-        defaults.set(previewBackground.rawValue, forKey: Key.previewBackground)
         NotificationCenter.default.post(name: Self.didChange, object: nil)
     }
 

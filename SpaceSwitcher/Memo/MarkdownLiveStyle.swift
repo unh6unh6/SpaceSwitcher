@@ -16,8 +16,9 @@ struct LiveStyleRun: Equatable {
         /// Text of a checked task.
         case done
         case quote
-        /// ``` lines, and the lines between them.
-        case fence, codeBlock
+        /// The backticks of a ``` line, the text after an opening ``` (its "language"), and the lines
+        /// between the fences.
+        case fence, fenceInfo, codeBlock
         /// `---`: drawn as a line away from the caret line.
         case rule
     }
@@ -34,7 +35,7 @@ enum MarkdownLiveStyle {
     static func runs(in text: String) -> [LiveStyleRun] {
         let s = text as NSString
         var runs: [LiveStyleRun] = []
-        var inFence = false
+        var fenceTicks = 0   // backticks of the open fence; 0 = not in a code block
         var line = 0
         var start = 0
         while start <= s.length {
@@ -45,11 +46,21 @@ enum MarkdownLiveStyle {
                 if length > 0 { runs.append(LiveStyleRun(range: NSRange(location: location, length: length), line: line, kind: kind)) }
             }
 
-            if trimmed.hasPrefix("```") && !isInlineFence(trimmed) {
-                add(start, end - start, .fence)
-                inFence.toggle()
-            } else if inFence {
-                add(start, end - start, .codeBlock)
+            let ticks = trimmed.prefix(while: { $0 == "`" }).count
+            let tickStart = start + (s.substring(with: lineRange) as NSString)
+                .range(of: "`").location.clampedToZero
+            if fenceTicks > 0 {
+                // Only bare backticks (at least as many) close; anything else is code.
+                if ticks >= fenceTicks, ticks == trimmed.count {
+                    add(tickStart, ticks, .fence)
+                    fenceTicks = 0
+                } else {
+                    add(start, end - start, .codeBlock)
+                }
+            } else if ticks >= 3 && !isInlineFence(trimmed) {
+                add(tickStart, ticks, .fence)
+                add(tickStart + ticks, end - tickStart - ticks, .fenceInfo)
+                fenceTicks = ticks
             } else {
                 block(s, start, end, add: add)
             }
@@ -243,4 +254,9 @@ enum MarkdownLiveStyle {
         guard let scalar = Unicode.Scalar(c) else { return true }   // surrogate half: part of a word
         return CharacterSet.alphanumerics.contains(scalar)
     }
+}
+
+private extension Int {
+    /// `NSNotFound` (not found) → 0.
+    var clampedToZero: Int { self == NSNotFound ? 0 : self }
 }

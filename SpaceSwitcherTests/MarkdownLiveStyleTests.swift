@@ -80,9 +80,18 @@ final class MarkdownLiveStyleTests: XCTestCase {
         assertRuns("a ``b`c`` d", [("``", .syntax), ("b`c", .code), ("``", .syntax)])
     }
 
-    func testFenceWithLanguageStillOpensABlock() {
-        let r = runs("```swift\nlet x\n```")
-        XCTAssertEqual(r.map(\.1), [.fence, .codeBlock, .fence])
+    // Text right after the opening ``` (the "language") stays visible; only the backticks hide.
+    func testFenceInfoTextStaysVisible() {
+        let r = runs("```메모\nlet x\n```")
+        XCTAssertEqual(r.map(\.0), ["```", "메모", "let x", "```"])
+        XCTAssertEqual(r.map(\.1), [.fence, .fenceInfo, .codeBlock, .fence])
+    }
+
+    // Only a line of bare backticks closes a block; "```글자" inside one is code, shown as is.
+    func testBackticksWithTextDoNotCloseABlock() {
+        let r = runs("```\na\n```글자\nb\n```")
+        XCTAssertEqual(r.map(\.0), ["```", "a", "```글자", "b", "```"])
+        XCTAssertEqual(r.map(\.1), [.fence, .codeBlock, .codeBlock, .codeBlock, .fence])
     }
 
     func testLineNumbers() {
