@@ -28,6 +28,12 @@ struct LiveMarkdownEditor: NSViewRepresentable {
     func makeCoordinator() -> Coordinator { Coordinator() }
 
     func makeNSView(context: Context) -> NSScrollView {
+        let (scroll, textView) = Self.makeScrollView()
+        context.coordinator.attach(textView, scroll: scroll)
+        return scroll
+    }
+
+    static func makeScrollView() -> (NSScrollView, LiveMarkdownTextView) {
         let textView = LiveMarkdownTextView.make()
         let scroll = NSScrollView()
         scroll.drawsBackground = false
@@ -36,8 +42,7 @@ struct LiveMarkdownEditor: NSViewRepresentable {
         scroll.borderType = .noBorder
         scroll.documentView = textView
         scroll.contentView.postsBoundsChangedNotifications = true
-        context.coordinator.attach(textView, scroll: scroll)
-        return scroll
+        return (scroll, textView)
     }
 
     func updateNSView(_ scroll: NSScrollView, context: Context) {
@@ -153,6 +158,9 @@ final class LiveMarkdownTextView: NSTextView {
         view.allowsUndo = true
         view.drawsBackground = false
         view.isVerticallyResizable = true
+        // Without this the document never grows past its first size, so a long memo put in by code
+        // (not typed) had nothing to scroll (#28).
+        view.maxSize = CGSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
         view.isHorizontallyResizable = false
         view.autoresizingMask = [.width]
         view.textContainerInset = CGSize(width: 0, height: 2)
@@ -187,9 +195,19 @@ final class LiveMarkdownTextView: NSTextView {
         revealed = caretLines
         LiveStyleApplier.apply(to: storage, revealing: caretLines)
         typingAttributes = LiveStyleApplier.baseAttributes
-        layoutManager?.invalidateGlyphs(forCharacterRange: NSRange(location: 0, length: storage.length),
-                                        changeInLength: 0, actualCharacterRange: nil)
+        let all = NSRange(location: 0, length: storage.length)
+        layoutManager?.invalidateGlyphs(forCharacterRange: all, changeInLength: 0, actualCharacterRange: nil)
+        layoutManager?.invalidateLayout(forCharacterRange: all, actualCharacterRange: nil)
+        fitHeight()
         needsDisplay = true
+    }
+
+    /// Grows (or shrinks) the document to its text so the scroll view knows what there is to scroll
+    /// (#28). Typing does this by itself; text and styles set by code do not.
+    func fitHeight() {
+        guard let layout = layoutManager, let container = textContainer else { return }
+        layout.ensureLayout(for: container)
+        sizeToFit()
     }
 
     override func didChangeText() {
