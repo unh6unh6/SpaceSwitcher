@@ -271,6 +271,44 @@ final class LiveMarkdownTextView: NSTextView {
         super.keyDown(with: event)
     }
 
+    // MARK: line-end moves (#29)
+
+    override func moveToRightEndOfLine(_ sender: Any?) { keepOnLine(towardEnd: true, extending: false) { super.moveToRightEndOfLine(sender) } }
+    override func moveToEndOfLine(_ sender: Any?) { keepOnLine(towardEnd: true, extending: false) { super.moveToEndOfLine(sender) } }
+    override func moveToLeftEndOfLine(_ sender: Any?) { keepOnLine(towardEnd: false, extending: false) { super.moveToLeftEndOfLine(sender) } }
+    override func moveToBeginningOfLine(_ sender: Any?) { keepOnLine(towardEnd: false, extending: false) { super.moveToBeginningOfLine(sender) } }
+    override func moveToRightEndOfLineAndModifySelection(_ sender: Any?) {
+        keepOnLine(towardEnd: true, extending: true) { super.moveToRightEndOfLineAndModifySelection(sender) }
+    }
+    override func moveToEndOfLineAndModifySelection(_ sender: Any?) {
+        keepOnLine(towardEnd: true, extending: true) { super.moveToEndOfLineAndModifySelection(sender) }
+    }
+    override func moveToLeftEndOfLineAndModifySelection(_ sender: Any?) {
+        keepOnLine(towardEnd: false, extending: true) { super.moveToLeftEndOfLineAndModifySelection(sender) }
+    }
+    override func moveToBeginningOfLineAndModifySelection(_ sender: Any?) {
+        keepOnLine(towardEnd: false, extending: true) { super.moveToBeginningOfLineAndModifySelection(sender) }
+    }
+
+    /// Runs the stock move (which keeps wrapped-line behavior), then pulls the moving end back onto
+    /// the line it started on: hidden markers of the next line belong to this line's last fragment.
+    private func keepOnLine(towardEnd: Bool, extending: Bool, _ move: () -> Void) {
+        let before = selectedRange()
+        move()
+        let after = selectedRange()
+        let from = towardEnd ? NSMaxRange(before) : before.location
+        let moved = towardEnd ? NSMaxRange(after) : after.location
+        let target = MarkdownLiveStyle.clamp(moved, from: from, towardEnd: towardEnd, in: string)
+        guard target != moved else { return }
+        if !extending {
+            setSelectedRange(NSRange(location: target, length: 0))
+        } else if towardEnd {
+            setSelectedRange(NSRange(location: after.location, length: max(0, target - after.location)))
+        } else {
+            setSelectedRange(NSRange(location: target, length: max(0, NSMaxRange(after) - target)))
+        }
+    }
+
     private enum Hit { case task(Int), link(String) }
 
     /// A checkbox or link drawn on a rendered (not caret) line under the pointer.

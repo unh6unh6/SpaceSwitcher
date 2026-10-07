@@ -92,6 +92,18 @@ enum MarkdownLiveStyle {
         line(at: (text as NSString).length, in: text) + 1
     }
 
+    /// Keeps a "to start/end of line" move on the caret's own line (#29). Away from the caret, lines
+    /// hide their leading markers as null glyphs, which AppKit lays out at the end of the previous
+    /// line fragment, so the stock move can land on a neighbouring line.
+    static func clamp(_ target: Int, from caret: Int, towardEnd: Bool, in text: String) -> Int {
+        let line = line(at: caret, in: text)
+        guard self.line(at: target, in: text) != line else { return target }
+        let start = lineStart(line, in: text)
+        if !towardEnd { return start }
+        let s = text as NSString
+        return start + lineEnd(s, from: start) - start
+    }
+
     /// UTF-16 offset where `line` begins (the end of the text past the last line).
     static func lineStart(_ line: Int, in text: String) -> Int {
         let s = text as NSString
